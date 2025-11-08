@@ -7,11 +7,7 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
-    "create-admin": "node scripts/create-admin.js",
-    "init-db": "node scripts/init-database.js",
-    "setup": "node scripts/setup-wizard.js",
-    "check-env": "node scripts/check-env.js",
-    "post-deploy": "node scripts/post-deploy-setup.js"
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

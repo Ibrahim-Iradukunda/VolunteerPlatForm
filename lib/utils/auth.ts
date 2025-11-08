@@ -1,27 +1,25 @@
 import jwt from "jsonwebtoken"
 import type { NextRequest } from "next/server"
 
+const JWT_SECRET = process.env.JWT_SECRET
+
+if (!JWT_SECRET) {
+  throw new Error("Please define the JWT_SECRET environment variable inside .env.local")
+}
+
 export interface JWTPayload {
   userId: string
   email: string
   role: string
 }
 
-function getJWTSecret(): string {
-  const JWT_SECRET = process.env.JWT_SECRET
-  if (!JWT_SECRET) {
-    throw new Error("Please define the JWT_SECRET environment variable inside .env.local")
-  }
-  return JWT_SECRET
-}
-
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, getJWTSecret(), { expiresIn: "7d" })
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, getJWTSecret()) as JWTPayload
+    return jwt.verify(token, JWT_SECRET) as JWTPayload
   } catch {
     return null
   }
