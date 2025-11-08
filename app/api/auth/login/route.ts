@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import User from "@/lib/models/User"
+import { findUserByEmail, comparePassword } from "@/lib/db/users"
 import { generateToken } from "@/lib/utils/auth"
 
 export async function POST(request: NextRequest) {
@@ -14,27 +14,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = await User.findOne({ email })
+    const user = findUserByEmail(email)
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     // Check password
-    const isPasswordValid = await user.comparePassword(password)
+    const isPasswordValid = await comparePassword(user, password)
     if (!isPasswordValid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     // Generate token
     const token = generateToken({
-      userId: user._id.toString(),
+      userId: user.id,
       email: user.email,
       role: user.role,
     })
 
     // Return user without password
-    const userResponse = user.toObject()
-    delete userResponse.password
+    const { password: _, ...userResponse } = user
 
     return NextResponse.json({
       user: userResponse,
@@ -45,6 +44,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message || "Login failed" }, { status: 500 })
   }
 }
-
-
-

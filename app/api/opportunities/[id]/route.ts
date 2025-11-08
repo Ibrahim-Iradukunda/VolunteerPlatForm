@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import Opportunity from "@/lib/models/Opportunity"
-import Application from "@/lib/models/Application"
+import { findOpportunityById, updateOpportunity, deleteOpportunity } from "@/lib/db/opportunities"
+import { countApplicationsByOpportunity } from "@/lib/db/applications"
+import { findCommentsByOpportunityId } from "@/lib/db/comments"
+import { findUserById } from "@/lib/db/users"
 import { getAuthFromRequest } from "@/lib/utils/auth"
-import mongoose from "mongoose"
 
 // GET - Get single opportunity
 export async function GET(
@@ -13,27 +14,33 @@ export async function GET(
   try {
     await connectDB()
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid opportunity ID" }, { status: 400 })
-    }
-
-    const opportunity = await Opportunity.findById(params.id)
-      .populate("organizationId", "orgName email contactInfo description")
-      .populate("comments")
-      .lean()
+    const opportunity = findOpportunityById(params.id)
 
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
+    // Get organization info
+    const organization = findUserById(opportunity.organizationId)
+    
+    // Get comments
+    const comments = findCommentsByOpportunityId(opportunity.id)
+
     // Calculate real application count
-    const applicationCount = await Application.countDocuments({
-      opportunityId: params.id,
-    })
+    const applicationCount = countApplicationsByOpportunity(opportunity.id)
 
     return NextResponse.json({
       opportunity: {
         ...opportunity,
+        _id: opportunity.id, // For compatibility
+        organizationId: {
+          _id: organization?.id,
+          orgName: organization?.orgName,
+          email: organization?.email,
+          contactInfo: organization?.contactInfo,
+          description: organization?.description,
+        },
+        comments,
         applications: applicationCount,
       },
     })
@@ -56,29 +63,27 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid opportunity ID" }, { status: 400 })
-    }
-
-    const opportunity = await Opportunity.findById(params.id)
+    const opportunity = findOpportunityById(params.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Check permissions: owner or admin
     if (
-      opportunity.organizationId.toString() !== auth.userId &&
+      opportunity.organizationId !== auth.userId &&
       auth.role !== "admin"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const body = await request.json()
-    const updated = await Opportunity.findByIdAndUpdate(params.id, body, {
-      new: true,
-    })
+    const updated = updateOpportunity(params.id, body)
 
-    return NextResponse.json({ opportunity: updated })
+    if (!updated) {
+      return NextResponse.json({ error: "Failed to update opportunity" }, { status: 500 })
+    }
+
+    return NextResponse.json({ opportunity: { ...updated, _id: updated.id } })
   } catch (error: any) {
     console.error("Error updating opportunity:", error)
     return NextResponse.json({ error: error.message || "Failed to update opportunity" }, { status: 500 })
@@ -98,24 +103,20 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid opportunity ID" }, { status: 400 })
-    }
-
-    const opportunity = await Opportunity.findById(params.id)
+    const opportunity = findOpportunityById(params.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Check permissions: owner or admin
     if (
-      opportunity.organizationId.toString() !== auth.userId &&
+      opportunity.organizationId !== auth.userId &&
       auth.role !== "admin"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await Opportunity.findByIdAndDelete(params.id)
+    deleteOpportunity(params.id)
 
     return NextResponse.json({ message: "Opportunity deleted successfully" })
   } catch (error: any) {
@@ -123,5 +124,3 @@ export async function DELETE(
     return NextResponse.json({ error: error.message || "Failed to delete opportunity" }, { status: 500 })
   }
 }
-
-

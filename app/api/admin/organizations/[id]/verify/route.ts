@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import User from "@/lib/models/User"
+import { findUserById, updateUser } from "@/lib/db/users"
 import { getAuthFromRequest } from "@/lib/utils/auth"
-import mongoose from "mongoose"
 
 // PUT - Verify or reject organization
 export async function PUT(
@@ -17,20 +16,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid organization ID" }, { status: 400 })
-    }
-
-    const { verified } = await request.json()
-
-    const user = await User.findByIdAndUpdate(
-      params.id,
-      { verified: verified === true },
-      { new: true }
-    )
-      .select("-password")
-      .lean()
-
+    const user = findUserById(params.id)
     if (!user) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
@@ -39,12 +25,19 @@ export async function PUT(
       return NextResponse.json({ error: "User is not an organization" }, { status: 400 })
     }
 
-    return NextResponse.json({ user })
+    const { verified } = await request.json()
+
+    const updated = updateUser(params.id, { verified: verified === true })
+
+    if (!updated) {
+      return NextResponse.json({ error: "Failed to update organization" }, { status: 500 })
+    }
+
+    const { password: _, ...userResponse } = updated
+
+    return NextResponse.json({ user: { ...userResponse, _id: userResponse.id } })
   } catch (error: any) {
     console.error("Error updating organization:", error)
     return NextResponse.json({ error: error.message || "Failed to update organization" }, { status: 500 })
   }
 }
-
-
-

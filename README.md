@@ -26,7 +26,7 @@ A web application connecting youth and people with disabilities to meaningful vo
 
 - **Framework**: Next.js + (React)
 - **Language**: TypeScript
-- **Database**: MongoDB
+- **Database**: SQLite
 - **Authentication**: JWT-based authentication with bcryptjs
 - **UI Components**: Radix UI
 - **Styling**: Tailwind CSS
@@ -112,8 +112,7 @@ A web application connecting youth and people with disabilities to meaningful vo
 │   ├── dashboard/        # Dashboard components
 │   └── ui/               # Reusable UI components
 ├── lib/                   # Utility libraries
-│   ├── db/               # Database connection
-│   ├── models/           # Mongoose models
+│   ├── db/               # Database connection and SQLite helpers
 │   └── utils/            # Utility functions
 ├── scripts/              # Utility scripts
 │   └── create-admin.js   # Admin user creation script

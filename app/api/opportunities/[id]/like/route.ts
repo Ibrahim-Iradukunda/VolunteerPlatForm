@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import Opportunity from "@/lib/models/Opportunity"
+import { findOpportunityById } from "@/lib/db/opportunities"
+import { toggleLike } from "@/lib/db/likes"
 import { getAuthFromRequest } from "@/lib/utils/auth"
-import mongoose from "mongoose"
 
 export async function POST(
   request: NextRequest,
@@ -16,41 +16,19 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid opportunity ID" }, { status: 400 })
-    }
-
-    const opportunity = await Opportunity.findById(params.id)
+    const opportunity = findOpportunityById(params.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
-    const userId = new mongoose.Types.ObjectId(auth.userId)
-    const isLiked = opportunity.likes.some(
-      (likeId) => likeId.toString() === auth.userId
-    )
-
-    if (isLiked) {
-      // Unlike
-      opportunity.likes = opportunity.likes.filter(
-        (likeId) => likeId.toString() !== auth.userId
-      )
-    } else {
-      // Like
-      opportunity.likes.push(userId)
-    }
-
-    await opportunity.save()
+    const result = toggleLike(params.id, auth.userId)
 
     return NextResponse.json({
-      liked: !isLiked,
-      likesCount: opportunity.likes.length,
+      liked: result.liked,
+      likesCount: result.likesCount,
     })
   } catch (error: any) {
     console.error("Error toggling like:", error)
     return NextResponse.json({ error: error.message || "Failed to toggle like" }, { status: 500 })
   }
 }
-
-
-

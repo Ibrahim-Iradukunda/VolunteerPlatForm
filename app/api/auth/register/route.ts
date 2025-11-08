@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import User from "@/lib/models/User"
+import { createUser, findUserByEmail } from "@/lib/db/users"
 import { generateToken } from "@/lib/utils/auth"
 import { sendEmail, generateApplicationEmail } from "@/lib/utils/email"
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email })
+    const existingUser = findUserByEmail(email)
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 })
     }
@@ -42,11 +42,11 @@ export async function POST(request: NextRequest) {
       userData.verified = false // Requires admin approval
     }
 
-    const user = await User.create(userData)
+    const user = await createUser(userData)
 
     // Generate token
     const token = generateToken({
-      userId: user._id.toString(),
+      userId: user.id,
       email: user.email,
       role: user.role,
     })
@@ -61,8 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Return user without password
-    const userResponse = user.toObject()
-    delete userResponse.password
+    const { password: _, ...userResponse } = user
 
     return NextResponse.json(
       {
@@ -77,6 +76,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message || "Registration failed" }, { status: 500 })
   }
 }
-
-
-

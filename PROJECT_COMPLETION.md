@@ -15,13 +15,14 @@
   - Approve/reject volunteer opportunities
   - View and manage all users
 
-### 2. Backend API with MongoDB Integration ✅
+### 2. Backend API with SQLite Integration ✅
 - **Database Connection**: `lib/db/connect.ts`
-- **Models**: 
-  - `lib/models/User.ts` - User model with role-based fields
-  - `lib/models/Opportunity.ts` - Opportunity model with likes and comments
-  - `lib/models/Application.ts` - Application model
-  - `lib/models/Comment.ts` - Comment model
+- **Database Helpers**: 
+  - `lib/db/users.ts` - User database operations with role-based fields
+  - `lib/db/opportunities.ts` - Opportunity database operations with likes and comments
+  - `lib/db/applications.ts` - Application database operations
+  - `lib/db/comments.ts` - Comment database operations
+  - `lib/db/likes.ts` - Like/unlike operations
 - **API Routes**:
   - `/api/auth/register` - User registration
   - `/api/auth/login` - User authentication
@@ -58,9 +59,10 @@
   - Likes API with toggle functionality
 
 ### 6. Database Models and Setup ✅
-- **MongoDB Models**: Complete with relationships and indexes
+- **SQLite Database**: Complete with relationships and indexes
 - **Database Connection**: Singleton pattern for connection reuse
 - **Schema Validation**: TypeScript interfaces for type safety
+- **Automatic Schema Initialization**: Database and tables created automatically
 
 ### 7. Environment Configuration ✅
 - **`.env.example`**: Template with all required environment variables
@@ -80,7 +82,7 @@
 ### Admin User Creation Script
 - **Script**: `scripts/create-admin.js`
 - **Usage**: `npm run create-admin [email] [password] [name]`
-- Creates admin user with hashed password in MongoDB
+- Creates admin user with hashed password in SQLite database
 
 ### Enhanced Frontend
 - Updated auth context to work with API and localStorage fallback
@@ -114,20 +116,20 @@
 
 ## 🔧 Setup Required
 
-1. **MongoDB**: 
-   - Install MongoDB locally or use MongoDB Atlas
-   - Update `MONGODB_URI` in `.env.local`
+1. **SQLite Database**: 
+   - Database is created automatically in `data/volunteer.db`
+   - No additional setup required
+   - Optionally set `DATABASE_PATH` in `.env.local` to customize location
 
 2. **Environment Variables**:
    - Copy `.env.example` to `.env.local`
-   - Fill in MongoDB connection string
    - Set JWT_SECRET (use a strong secret in production)
    - Configure email settings (optional)
+   - Optionally set DATABASE_PATH for custom database location
 
 3. **Create Admin User**:
    ```bash
-   npm run create-admin admin@example.com  want to allow all to use localstorage, I'll will use mongodb later
-   admin123 "Admin User"
+   npm run create-admin admin@example.com admin123 "Admin User"
    ```
 
 4. **Start Development Server**:
@@ -153,7 +155,7 @@
 - ✅ NFR3: Usability (WCAG 2.1 guidelines, accessible UI)
 - ✅ NFR4: Availability (ready for deployment)
 - ✅ NFR5: Portability (web-based, mobile-responsive)
-- ✅ NFR6: Scalability (MongoDB, modular architecture)
+- ✅ NFR6: Scalability (SQLite, modular architecture)
 
 ## 📝 Notes
 

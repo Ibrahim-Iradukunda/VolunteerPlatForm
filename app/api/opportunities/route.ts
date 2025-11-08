@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import Opportunity from "@/lib/models/Opportunity"
-import Application from "@/lib/models/Application"
-import User from "@/lib/models/User"
+import { findOpportunities, createOpportunity, updateOpportunityApplicationCount } from "@/lib/db/opportunities"
+import { findUserById } from "@/lib/db/users"
+import { countApplicationsByOpportunity } from "@/lib/db/applications"
 import { getAuthFromRequest } from "@/lib/utils/auth"
 
 // GET - Fetch all opportunities with filters
@@ -18,60 +18,24 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || "approved"
     const organizationId = searchParams.get("organizationId")
 
-    let query: any = {}
-
-    // Filter by status
-    if (status !== "all") {
-      query.status = status
-    }
-
-    // Filter by organization
-    if (organizationId) {
-      query.organizationId = organizationId
-    }
-
-    // Filter by type
-    if (type && type !== "all") {
-      query.type = type
-    }
-
-    // Filter by location
-    if (location) {
-      query.location = { $regex: location, $options: "i" }
-    }
-
-    // Filter by accessibility features
-    if (accessibility) {
-      query.accessibilityFeatures = { $in: [accessibility] }
-    }
-
-    // Search in title, description, location
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { location: { $regex: search, $options: "i" } },
-        { organizationName: { $regex: search, $options: "i" } },
-      ]
-    }
-
-    const opportunities = await Opportunity.find(query)
-      .sort({ createdAt: -1 })
-      .populate("organizationId", "orgName email")
-      .lean()
+    const opportunities = findOpportunities({
+      search: search || undefined,
+      type: type || undefined,
+      location: location || undefined,
+      accessibility: accessibility || undefined,
+      status: status || undefined,
+      organizationId: organizationId || undefined,
+    })
 
     // Calculate real application counts for each opportunity
-    const opportunitiesWithCounts = await Promise.all(
-      opportunities.map(async (opp) => {
-        const applicationCount = await Application.countDocuments({
-          opportunityId: opp._id,
-        })
-        return {
-          ...opp,
-          applications: applicationCount,
-        }
-      })
-    )
+    const opportunitiesWithCounts = opportunities.map((opp) => {
+      const applicationCount = countApplicationsByOpportunity(opp.id)
+      return {
+        ...opp,
+        _id: opp.id, // For compatibility
+        applications: applicationCount,
+      }
+    })
 
     return NextResponse.json({ opportunities: opportunitiesWithCounts })
   } catch (error: any) {
@@ -90,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await User.findById(auth.userId)
+    const user = findUserById(auth.userId)
     if (!user || !user.verified) {
       return NextResponse.json({ error: "Organization not verified" }, { status: 403 })
     }
@@ -110,8 +74,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const opportunity = await Opportunity.create({
-      organizationId: user._id,
+    const opportunity = createOpportunity({
+      organizationId: user.id,
       organizationName: user.orgName || user.name,
       title,
       description,
@@ -123,11 +87,9 @@ export async function POST(request: NextRequest) {
       status: "pending", // Requires admin approval
     })
 
-    return NextResponse.json({ opportunity }, { status: 201 })
+    return NextResponse.json({ opportunity: { ...opportunity, _id: opportunity.id } }, { status: 201 })
   } catch (error: any) {
     console.error("Error creating opportunity:", error)
     return NextResponse.json({ error: error.message || "Failed to create opportunity" }, { status: 500 })
   }
 }
-
-
