@@ -14,9 +14,12 @@ export default function HomePage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [locationFilter, setLocationFilter] = useState("")
   const [accessibilityFilters, setAccessibilityFilters] = useState<string[]>([])
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => getOpportunities())
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
 
   useEffect(() => {
+    // Guard against SSR - only run in browser
+    if (typeof window === "undefined") return
+
     const loadOpportunities = () => {
       // getOpportunities() now calculates application counts dynamically from actual applications
       setOpportunities(getOpportunities())

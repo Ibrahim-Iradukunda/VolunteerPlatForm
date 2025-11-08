@@ -87,6 +87,11 @@ export const mockOpportunities: Opportunity[] = [
 ]
 
 export function getOpportunities(): Opportunity[] {
+  // Guard against SSR - localStorage is only available in the browser
+  if (typeof window === "undefined") {
+    return mockOpportunities
+  }
+
   const stored = localStorage.getItem("opportunities")
   let opportunities: Opportunity[]
   
@@ -116,14 +121,17 @@ export function getOpportunities(): Opportunity[] {
 }
 
 export function saveOpportunities(opportunities: Opportunity[]): void {
+  if (typeof window === "undefined") return
   localStorage.setItem("opportunities", JSON.stringify(opportunities))
 }
 
 export function getApplications(): Application[] {
+  if (typeof window === "undefined") return []
   const stored = localStorage.getItem("applications")
   return stored ? JSON.parse(stored) : []
 }
 
 export function saveApplications(applications: Application[]): void {
+  if (typeof window === "undefined") return
   localStorage.setItem("applications", JSON.stringify(applications))
 }

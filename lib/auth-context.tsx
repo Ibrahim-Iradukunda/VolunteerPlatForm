@@ -21,6 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
+    // Guard against SSR - localStorage is only available in the browser
+    if (typeof window === "undefined") return
+
     // Initialize admin user if it doesn't exist
     const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
     const adminExists = mockUsers.some(
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    if (typeof window === "undefined") return false
     // Use localStorage directly
     const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
     const foundUser = mockUsers.find((u: any) => u.email === email && u.password === password)
@@ -85,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const register = async (userData: any): Promise<boolean> => {
+    if (typeof window === "undefined") return false
     // Use localStorage directly
     const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
 
@@ -115,8 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setToken(null)
     setIsAuthenticated(false)
-    localStorage.removeItem("user")
-    localStorage.removeItem("token")
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
+    }
   }
 
   const getAuthHeaders = (): HeadersInit => {

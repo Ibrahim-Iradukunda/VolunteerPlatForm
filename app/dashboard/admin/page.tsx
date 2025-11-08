@@ -19,6 +19,9 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Guard against SSR - localStorage is only available in the browser
+    if (typeof window === "undefined") return
+
     // Check localStorage directly as fallback
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
