@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Admin User (localStorage)</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 500px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+        padding: 12px;
+        border-radius: 4px;
+        margin-top: 15px;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 4px;
+        margin-top: 15px;
+      }
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Create Admin User</h1>
+      <div class="info">
+        <strong>Instructions:</strong> Fill in the form below to create an admin
+        user in localStorage. After creation, you can use these credentials to
+        log in to the admin dashboard.
+      </div>
+
+      <form id="adminForm">
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            placeholder="admin@example.com"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            placeholder="Enter password"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="name">Name:</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            placeholder="Admin User"
+          />
+        </div>
+
+        <button type="submit">Create Admin User</button>
+      </form>
+
+      <div id="message"></div>
+    </div>
+
+    <script>
+      document
+        .getElementById("adminForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+          const name = document.getElementById("name").value;
+          const messageDiv = document.getElementById("message");
+
+          // Get existing users from localStorage
+          let mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]");
+
+          // Check if user already exists
+          const existingUser = mockUsers.find((u) => u.email === email);
+          if (existingUser) {
+            messageDiv.innerHTML =
+              '<div class="error">A user with this email already exists!</div>';
+            return;
+          }
+
+          // Generate ID
+          const id = crypto.randomUUID
+            ? crypto.randomUUID()
+            : Math.random().toString(36).substring(2, 15) +
+              Math.random().toString(36).substring(2, 15);
+
+          // Create admin user
+          const adminUser = {
+            id: id,
+            email: email,
+            password: password, // Note: In production, this should be hashed
+            name: name,
+            role: "admin",
+            createdAt: new Date().toISOString(),
+            verified: true,
+          };
+
+          // Add to localStorage
+          mockUsers.push(adminUser);
+          localStorage.setItem("mockUsers", JSON.stringify(mockUsers));
+
+          messageDiv.innerHTML = `
+                <div class="success">
+                    <strong>Admin user created successfully!</strong><br>
+                    Email: ${email}<br>
+                    Password: ${password}<br>
+                    <br>
+                    <strong>You can now log in with these credentials.</strong>
+                </div>
+            `;
+
+          // Clear form
+          document.getElementById("adminForm").reset();
+        });
+
+      // Check if admin users exist
+      window.addEventListener("load", function () {
+        const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]");
+        const adminUsers = mockUsers.filter((u) => u.role === "admin");
+
+        if (adminUsers.length > 0) {
+          const messageDiv = document.getElementById("message");
+          messageDiv.innerHTML = `
+                    <div class="info">
+                        <strong>Existing Admin Users:</strong><br>
+                        ${adminUsers.map((u) => `${u.email} (${u.name})`).join("<br>")}
+                    </div>
+                `;
+        }
+      });
+    </script>
+  </body>
+</html>
