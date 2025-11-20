@@ -20,12 +20,12 @@ export async function PUT(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const application = findApplicationById(resolvedParams.id)
+    const application = await findApplicationById(resolvedParams.id)
     if (!application) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 })
     }
 
-    const opportunity = findOpportunityById(application.opportunityId)
+    const opportunity = await findOpportunityById(application.opportunityId)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
@@ -45,14 +45,14 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
-    const updated = updateApplication(resolvedParams.id, { status: status as "pending" | "accepted" | "rejected" })
+    const updated = await updateApplication(resolvedParams.id, { status: status as "pending" | "accepted" | "rejected" })
 
     if (!updated) {
       return NextResponse.json({ error: "Failed to update application" }, { status: 500 })
     }
 
     // Send email notification to volunteer
-    const volunteer = findUserById(application.volunteerId)
+    const volunteer = await findUserById(application.volunteerId)
     if (volunteer && (status === "accepted" || status === "rejected")) {
       await sendEmail({
         to: volunteer.email,
@@ -85,22 +85,22 @@ export async function DELETE(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const application = findApplicationById(resolvedParams.id)
+    const application = await findApplicationById(resolvedParams.id)
     if (!application) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 })
     }
 
-    const opportunity = findOpportunityById(application.opportunityId)
+    const opportunity = await findOpportunityById(application.opportunityId)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
-    const deleted = deleteApplication(application.id)
+    const deleted = await deleteApplication(application.id)
     if (!deleted) {
       return NextResponse.json({ error: "Failed to delete application" }, { status: 500 })
     }
 
-    updateOpportunityApplicationCount(opportunity.id)
+    await updateOpportunityApplicationCount(opportunity.id)
 
     return NextResponse.json({ message: "Application deleted successfully" })
   } catch (error: any) {

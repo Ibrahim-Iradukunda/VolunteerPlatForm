@@ -17,22 +17,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Opportunity ID is required" }, { status: 400 })
     }
 
-    const comments = findCommentsByOpportunityId(opportunityId)
+    const comments = await findCommentsByOpportunityId(opportunityId)
 
-    // Add volunteer email for compatibility
-    const commentsWithEmail = comments.map(comment => {
-      const volunteer = findUserById(comment.volunteerId)
-      return {
-        ...comment,
-        _id: comment.id,
-        volunteerName: comment.volunteerName,
-        volunteerId: {
-          _id: volunteer?.id,
-          name: volunteer?.name || comment.volunteerName,
-          email: volunteer?.email,
-        },
-      }
-    })
+    const commentsWithEmail = await Promise.all(
+      comments.map(async comment => {
+        const volunteer = await findUserById(comment.volunteerId)
+        return {
+          ...comment,
+          _id: comment.id,
+          volunteerName: comment.volunteerName,
+          volunteerId: {
+            _id: volunteer?.id,
+            name: volunteer?.name || comment.volunteerName,
+            email: volunteer?.email,
+          },
+        }
+      })
+    )
 
     return NextResponse.json({ comments: commentsWithEmail })
   } catch (error: any) {
@@ -62,19 +63,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if opportunity exists
-    const opportunity = findOpportunityById(opportunityId)
+    const opportunity = await findOpportunityById(opportunityId)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Get volunteer info
-    const volunteer = findUserById(auth.userId)
+    const volunteer = await findUserById(auth.userId)
     if (!volunteer) {
       return NextResponse.json({ error: "Volunteer not found" }, { status: 404 })
     }
 
     // Create comment
-    const comment = createComment({
+    const comment = await createComment({
       opportunityId,
       volunteerId: auth.userId,
       volunteerName: volunteer.name,

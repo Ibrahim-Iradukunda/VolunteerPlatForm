@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
 
-    const existing = findOpportunities({})
+    const existing = await findOpportunities({})
     
     return NextResponse.json({ 
       message: "Seed endpoint available. No hardcoded opportunities will be created.",
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     await connectDB()
-    const existing = findOpportunities({})
+    const existing = await findOpportunities({})
     return NextResponse.json({ 
       needsSeeding: existing.length === 0,
       count: existing.length 

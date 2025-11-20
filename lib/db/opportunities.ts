@@ -1,4 +1,4 @@
-import { getDB } from "./connect"
+import connectDB from "./connect"
 import { generateId } from "@/lib/utils/id"
 
 export interface IOpportunity {
@@ -31,8 +31,17 @@ export interface IOpportunityInput {
   status?: "pending" | "approved" | "rejected"
 }
 
-export function createOpportunity(opportunityData: IOpportunityInput): IOpportunity {
-  const db = getDB()
+function mapOpportunityRow(row: any): IOpportunity {
+  return {
+    ...row,
+    requirements: JSON.parse(row.requirements || "[]"),
+    accessibilityFeatures: JSON.parse(row.accessibilityFeatures || "[]"),
+    skills: JSON.parse(row.skills || "[]"),
+  }
+}
+
+export async function createOpportunity(opportunityData: IOpportunityInput): Promise<IOpportunity> {
+  const db = await connectDB()
   const id = generateId()
   const now = new Date().toISOString()
   
@@ -53,54 +62,54 @@ export function createOpportunity(opportunityData: IOpportunityInput): IOpportun
     updatedAt: now,
   }
 
-  db.prepare(`
-    INSERT INTO opportunities (
-      id, organizationId, organizationName, title, description, requirements,
-      location, type, accessibilityFeatures, skills, status, applications, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    opportunity.id,
-    opportunity.organizationId,
-    opportunity.organizationName,
-    opportunity.title,
-    opportunity.description,
-    JSON.stringify(opportunity.requirements),
-    opportunity.location,
-    opportunity.type,
-    JSON.stringify(opportunity.accessibilityFeatures),
-    JSON.stringify(opportunity.skills),
-    opportunity.status,
-    opportunity.applications,
-    opportunity.createdAt,
-    opportunity.updatedAt
-  )
+  await db.execute({
+    sql: `
+      INSERT INTO opportunities (
+        id, organizationId, organizationName, title, description, requirements,
+        location, type, accessibilityFeatures, skills, status, applications, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    args: [
+      opportunity.id,
+      opportunity.organizationId,
+      opportunity.organizationName,
+      opportunity.title,
+      opportunity.description,
+      JSON.stringify(opportunity.requirements),
+      opportunity.location,
+      opportunity.type,
+      JSON.stringify(opportunity.accessibilityFeatures),
+      JSON.stringify(opportunity.skills),
+      opportunity.status,
+      opportunity.applications,
+      opportunity.createdAt,
+      opportunity.updatedAt,
+    ],
+  })
 
   return opportunity
 }
 
-export function findOpportunityById(id: string): IOpportunity | null {
-  const db = getDB()
-  const row = db.prepare("SELECT * FROM opportunities WHERE id = ?").get(id) as any
-  
+export async function findOpportunityById(id: string): Promise<IOpportunity | null> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "SELECT * FROM opportunities WHERE id = ?",
+    args: [id],
+  })
+  const row = result.rows[0] as any
   if (!row) return null
-  
-  return {
-    ...row,
-    requirements: JSON.parse(row.requirements || "[]"),
-    accessibilityFeatures: JSON.parse(row.accessibilityFeatures || "[]"),
-    skills: JSON.parse(row.skills || "[]"),
-  }
+  return mapOpportunityRow(row)
 }
 
-export function findOpportunities(query: {
+export async function findOpportunities(query: {
   search?: string
   type?: string
   location?: string
   accessibility?: string
   status?: string
   organizationId?: string
-}): IOpportunity[] {
-  const db = getDB()
+}): Promise<IOpportunity[]> {
+  const db = await connectDB()
   let sql = "SELECT * FROM opportunities WHERE 1=1"
   const params: any[] = []
 
@@ -138,19 +147,18 @@ export function findOpportunities(query: {
 
   sql += " ORDER BY createdAt DESC"
 
-  const rows = db.prepare(sql).all(...params) as any[]
+  const result = await db.execute({
+    sql,
+    args: params,
+  })
+  const rows = result.rows as any[]
   
-  return rows.map(row => ({
-    ...row,
-    requirements: JSON.parse(row.requirements || "[]"),
-    accessibilityFeatures: JSON.parse(row.accessibilityFeatures || "[]"),
-    skills: JSON.parse(row.skills || "[]"),
-  }))
+  return rows.map(mapOpportunityRow)
 }
 
-export function updateOpportunity(id: string, updates: Partial<IOpportunityInput>): IOpportunity | null {
-  const db = getDB()
-  const opportunity = findOpportunityById(id)
+export async function updateOpportunity(id: string, updates: Partial<IOpportunityInput>): Promise<IOpportunity | null> {
+  const db = await connectDB()
+  const opportunity = await findOpportunityById(id)
   if (!opportunity) return null
 
   const fields: string[] = []
@@ -195,23 +203,36 @@ export function updateOpportunity(id: string, updates: Partial<IOpportunityInput
   values.push(new Date().toISOString())
   values.push(id)
 
-  db.prepare(`UPDATE opportunities SET ${fields.join(", ")} WHERE id = ?`).run(...values)
+  await db.execute({
+    sql: `UPDATE opportunities SET ${fields.join(", ")} WHERE id = ?`,
+    args: values,
+  })
   
   return findOpportunityById(id)
 }
 
-export function deleteOpportunity(id: string): boolean {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM opportunities WHERE id = ?").run(id)
-  return result.changes > 0
+export async function deleteOpportunity(id: string): Promise<boolean> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "DELETE FROM opportunities WHERE id = ?",
+    args: [id],
+  })
+  return (result.rowsAffected ?? 0) > 0
 }
 
-export function updateOpportunityApplicationCount(opportunityId: string): number {
-  const db = getDB()
-  const count = db.prepare("SELECT COUNT(*) as count FROM applications WHERE opportunityId = ?").get(opportunityId) as { count: number }
-  const applicationCount = count.count
+export async function updateOpportunityApplicationCount(opportunityId: string): Promise<number> {
+  const db = await connectDB()
+  const countResult = await db.execute({
+    sql: "SELECT COUNT(*) as count FROM applications WHERE opportunityId = ?",
+    args: [opportunityId],
+  })
+  const countRow = countResult.rows[0] as { count: number }
+  const applicationCount = Number(countRow?.count ?? 0)
   
-  db.prepare("UPDATE opportunities SET applications = ? WHERE id = ?").run(applicationCount, opportunityId)
+  await db.execute({
+    sql: "UPDATE opportunities SET applications = ? WHERE id = ?",
+    args: [applicationCount, opportunityId],
+  })
   
   return applicationCount
 }

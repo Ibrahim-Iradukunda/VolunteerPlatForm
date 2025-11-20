@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import { createApplication, findApplications, findApplicationByVolunteerAndOpportunity, countApplicationsByOpportunity } from "@/lib/db/applications"
+import { createApplication, findApplications, findApplicationByVolunteerAndOpportunity } from "@/lib/db/applications"
 import { findOpportunityById, updateOpportunityApplicationCount } from "@/lib/db/opportunities"
 import { findUserById } from "@/lib/db/users"
 import { getAuthFromRequest } from "@/lib/utils/auth"
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     if (opportunityId) query.opportunityId = opportunityId
     if (status) query.status = status
 
-    const applications = findApplications(query)
+    const applications = await findApplications(query)
 
     // Format for compatibility
     const formattedApplications = applications.map(app => ({
@@ -78,26 +78,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if opportunity exists
-    const opportunity = findOpportunityById(opportunityId)
+    const opportunity = await findOpportunityById(opportunityId)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Check if already applied
-    const existingApplication = findApplicationByVolunteerAndOpportunity(auth.userId, opportunityId)
+    const existingApplication = await findApplicationByVolunteerAndOpportunity(auth.userId, opportunityId)
 
     if (existingApplication) {
       return NextResponse.json({ error: "Already applied to this opportunity" }, { status: 400 })
     }
 
     // Get volunteer info
-    const volunteer = findUserById(auth.userId)
+    const volunteer = await findUserById(auth.userId)
     if (!volunteer) {
       return NextResponse.json({ error: "Volunteer not found" }, { status: 404 })
     }
 
     // Create application
-    const application = createApplication({
+    const application = await createApplication({
       volunteerId: auth.userId,
       volunteerName: volunteer.name,
       opportunityId,
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Recalculate and update opportunity application count (real-time)
-    updateOpportunityApplicationCount(opportunityId)
+    await updateOpportunityApplicationCount(opportunityId)
 
     // Send email notification
     await sendEmail({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import { findOpportunities, createOpportunity, updateOpportunityApplicationCount } from "@/lib/db/opportunities"
+import { findOpportunities, createOpportunity } from "@/lib/db/opportunities"
 import { findUserById } from "@/lib/db/users"
 import { countApplicationsByOpportunity } from "@/lib/db/applications"
 import { getAuthFromRequest } from "@/lib/utils/auth"
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const status = statusParam === "all" ? undefined : (statusParam || "approved")
     const organizationId = searchParams.get("organizationId")
 
-    const opportunities = findOpportunities({
+    const opportunities = await findOpportunities({
       search: search || undefined,
       type: type || undefined,
       location: location || undefined,
@@ -30,15 +30,16 @@ export async function GET(request: NextRequest) {
       organizationId: organizationId || undefined,
     })
 
-    // Calculate real application counts for each opportunity
-    const opportunitiesWithCounts = opportunities.map((opp) => {
-      const applicationCount = countApplicationsByOpportunity(opp.id)
-      return {
-        ...opp,
-        _id: opp.id, // For compatibility
-        applications: applicationCount,
-      }
-    })
+    const opportunitiesWithCounts = await Promise.all(
+      opportunities.map(async (opp) => {
+        const applicationCount = await countApplicationsByOpportunity(opp.id)
+        return {
+          ...opp,
+          _id: opp.id,
+          applications: applicationCount,
+        }
+      })
+    )
 
     return NextResponse.json({ opportunities: opportunitiesWithCounts })
   } catch (error: any) {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = findUserById(auth.userId)
+    const user = await findUserById(auth.userId)
     if (!user) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const opportunity = createOpportunity({
+    const opportunity = await createOpportunity({
       organizationId: user.id,
       organizationName: user.orgName || user.name,
       title,

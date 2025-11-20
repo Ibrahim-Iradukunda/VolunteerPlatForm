@@ -17,7 +17,7 @@ export async function PUT(
     }
 
     const resolvedParams = await Promise.resolve(params);
-    const user = findUserById(resolvedParams.id);
+    const user = await findUserById(resolvedParams.id);
     if (!user) {
       return NextResponse.json(
         { error: "Organization not found" },
@@ -54,7 +54,7 @@ export async function PUT(
       rejectedValue = !verifiedValue;
     }
 
-    const updated = updateUser(resolvedParams.id, {
+    const updated = await updateUser(resolvedParams.id, {
       verified: verifiedValue,
       rejected: rejectedValue,
     });

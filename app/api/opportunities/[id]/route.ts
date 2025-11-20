@@ -17,29 +17,25 @@ export async function GET(
 
     // Handle both sync and async params (Next.js 13+ vs 15+)
     const resolvedParams = await Promise.resolve(params)
-    const opportunity = findOpportunityById(resolvedParams.id)
+    const opportunity = await findOpportunityById(resolvedParams.id)
 
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Get organization info
-    const organization = findUserById(opportunity.organizationId)
-    
-    // Get comments
-    const comments = findCommentsByOpportunityId(opportunity.id)
-
-    // Calculate real application count
-    const applicationCount = countApplicationsByOpportunity(opportunity.id)
-
-    // Get likes count
-    const likesCount = getLikesCount(opportunity.id)
+    const [organization, comments, applicationCount, likesCount] = await Promise.all([
+      findUserById(opportunity.organizationId),
+      findCommentsByOpportunityId(opportunity.id),
+      countApplicationsByOpportunity(opportunity.id),
+      getLikesCount(opportunity.id),
+    ])
 
     // Check if current user liked it (if authenticated)
     const auth = getAuthFromRequest(request)
     let userLiked = false
     if (auth) {
-      userLiked = isLiked(opportunity.id, auth.userId)
+      userLiked = await isLiked(opportunity.id, auth.userId)
     }
 
     return NextResponse.json({
@@ -80,7 +76,7 @@ export async function PUT(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const opportunity = findOpportunityById(resolvedParams.id)
+    const opportunity = await findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
@@ -94,7 +90,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const updated = updateOpportunity(resolvedParams.id, body)
+    const updated = await updateOpportunity(resolvedParams.id, body)
 
     if (!updated) {
       return NextResponse.json({ error: "Failed to update opportunity" }, { status: 500 })
@@ -121,7 +117,7 @@ export async function DELETE(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const opportunity = findOpportunityById(resolvedParams.id)
+    const opportunity = await findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
@@ -134,7 +130,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    deleteOpportunity(resolvedParams.id)
+    await deleteOpportunity(resolvedParams.id)
 
     return NextResponse.json({ message: "Opportunity deleted successfully" })
   } catch (error: any) {

@@ -17,12 +17,12 @@ export async function POST(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const opportunity = findOpportunityById(resolvedParams.id)
+    const opportunity = await findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
-    const result = toggleLike(resolvedParams.id, auth.userId)
+    const result = await toggleLike(resolvedParams.id, auth.userId)
 
     return NextResponse.json({
       liked: result.liked,

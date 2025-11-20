@@ -1,4 +1,4 @@
-import { getDB } from "./connect"
+import connectDB from "./connect"
 import { generateId } from "@/lib/utils/id"
 
 export interface IApplication {
@@ -21,8 +21,8 @@ export interface IApplicationInput {
   status?: "pending" | "accepted" | "rejected"
 }
 
-export function createApplication(applicationData: IApplicationInput): IApplication {
-  const db = getDB()
+export async function createApplication(applicationData: IApplicationInput): Promise<IApplication> {
+  const db = await connectDB()
   const id = generateId()
   const now = new Date().toISOString()
   
@@ -37,52 +37,55 @@ export function createApplication(applicationData: IApplicationInput): IApplicat
     appliedAt: now,
   }
 
-  db.prepare(`
-    INSERT INTO applications (
-      id, volunteerId, volunteerName, opportunityId, opportunityTitle, status, message, appliedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    application.id,
-    application.volunteerId,
-    application.volunteerName,
-    application.opportunityId,
-    application.opportunityTitle,
-    application.status,
-    application.message,
-    application.appliedAt
-  )
+  await db.execute({
+    sql: `
+      INSERT INTO applications (
+        id, volunteerId, volunteerName, opportunityId, opportunityTitle, status, message, appliedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    args: [
+      application.id,
+      application.volunteerId,
+      application.volunteerName,
+      application.opportunityId,
+      application.opportunityTitle,
+      application.status,
+      application.message,
+      application.appliedAt,
+    ],
+  })
 
   return application
 }
 
-export function findApplicationById(id: string): IApplication | null {
-  const db = getDB()
-  const row = db.prepare("SELECT * FROM applications WHERE id = ?").get(id) as any
-  
-  if (!row) return null
-  
-  return row
+export async function findApplicationById(id: string): Promise<IApplication | null> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "SELECT * FROM applications WHERE id = ?",
+    args: [id],
+  })
+  return (result.rows[0] as any) ?? null
 }
 
-export function findApplicationByVolunteerAndOpportunity(volunteerId: string, opportunityId: string): IApplication | null {
-  const db = getDB()
-  const row = db.prepare(`
-    SELECT * FROM applications 
-    WHERE volunteerId = ? AND opportunityId = ?
-  `).get(volunteerId, opportunityId) as any
-  
-  if (!row) return null
-  
-  return row
+export async function findApplicationByVolunteerAndOpportunity(volunteerId: string, opportunityId: string): Promise<IApplication | null> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: `
+      SELECT * FROM applications 
+      WHERE volunteerId = ? AND opportunityId = ?
+    `,
+    args: [volunteerId, opportunityId],
+  })
+  return (result.rows[0] as any) ?? null
 }
 
-export function findApplications(query: {
+export async function findApplications(query: {
   volunteerId?: string
   opportunityId?: string
   organizationId?: string
   status?: string
-}): IApplication[] {
-  const db = getDB()
+}): Promise<IApplication[]> {
+  const db = await connectDB()
   let sql = `
     SELECT a.*, u.email as volunteerEmail, o.title as opportunityTitle, o.organizationName
     FROM applications a
@@ -114,7 +117,8 @@ export function findApplications(query: {
 
   sql += " ORDER BY a.appliedAt DESC"
 
-  const rows = db.prepare(sql).all(...params) as any[]
+  const result = await db.execute({ sql, args: params })
+  const rows = result.rows as any[]
   
   return rows.map(row => ({
     id: row.id,
@@ -128,39 +132,56 @@ export function findApplications(query: {
   }))
 }
 
-export function countApplicationsByOpportunity(opportunityId: string): number {
-  const db = getDB()
-  const result = db.prepare("SELECT COUNT(*) as count FROM applications WHERE opportunityId = ?").get(opportunityId) as { count: number }
-  return result.count
+export async function countApplicationsByOpportunity(opportunityId: string): Promise<number> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "SELECT COUNT(*) as count FROM applications WHERE opportunityId = ?",
+    args: [opportunityId],
+  })
+  const row = result.rows[0] as { count: number }
+  return Number(row?.count ?? 0)
 }
 
-export function updateApplication(id: string, updates: { status?: "pending" | "accepted" | "rejected" }): IApplication | null {
-  const db = getDB()
-  const application = findApplicationById(id)
+export async function updateApplication(id: string, updates: { status?: "pending" | "accepted" | "rejected" }): Promise<IApplication | null> {
+  const db = await connectDB()
+  const application = await findApplicationById(id)
   if (!application) return null
 
   if (updates.status) {
-    db.prepare("UPDATE applications SET status = ? WHERE id = ?").run(updates.status, id)
+    await db.execute({
+      sql: "UPDATE applications SET status = ? WHERE id = ?",
+      args: [updates.status, id],
+    })
   }
 
   return findApplicationById(id)
 }
 
-export function deleteApplication(id: string): boolean {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM applications WHERE id = ?").run(id)
-  return result.changes > 0
+export async function deleteApplication(id: string): Promise<boolean> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "DELETE FROM applications WHERE id = ?",
+    args: [id],
+  })
+  return (result.rowsAffected ?? 0) > 0
 }
 
-export function deleteApplicationsByOpportunity(opportunityId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM applications WHERE opportunityId = ?").run(opportunityId)
-  return result.changes
+export async function deleteApplicationsByOpportunity(opportunityId: string): Promise<number> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "DELETE FROM applications WHERE opportunityId = ?",
+    args: [opportunityId],
+  })
+  return result.rowsAffected ?? 0
 }
 
-export function deleteApplicationsByVolunteer(volunteerId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM applications WHERE volunteerId = ?").run(volunteerId)
-  return result.changes
+export async function deleteApplicationsByVolunteer(volunteerId: string): Promise<number> {
+  const db = await connectDB()
+  const result = await db.execute({
+    sql: "DELETE FROM applications WHERE volunteerId = ?",
+    args: [volunteerId],
+  })
+  return result.rowsAffected ?? 0
 }
+
 

@@ -16,7 +16,7 @@ export async function DELETE(
     }
 
     const resolvedParams = await Promise.resolve(params)
-    const user = findUserById(resolvedParams.id)
+    const user = await findUserById(resolvedParams.id)
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -26,7 +26,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Cannot delete admin users" }, { status: 403 })
     }
 
-    const success = deleteUser(user.id)
+    const success = await deleteUser(user.id)
 
     if (!success) {
       return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
