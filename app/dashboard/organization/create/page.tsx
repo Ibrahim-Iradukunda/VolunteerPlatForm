@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { SiteHeader } from "@/components/site-header"
@@ -14,11 +14,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { getOpportunities, saveOpportunities } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, XCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import type { Organization } from "@/lib/types"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const accessibilityOptions = [
   "Wheelchair accessible",
@@ -33,7 +33,7 @@ const accessibilityOptions = [
 ]
 
 export default function CreateOpportunityPage() {
-  const { user } = useAuth()
+  const { user, getAuthHeaders } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const organization = user as Organization
@@ -49,6 +49,27 @@ export default function CreateOpportunityPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Check if organization can post opportunities
+  useEffect(() => {
+    if (organization) {
+      if ((organization as any).rejected) {
+        toast({
+          title: "Access Denied",
+          description: "Your organization verification has been rejected. You cannot post opportunities.",
+          variant: "destructive",
+        })
+        router.push("/dashboard/organization")
+      } else if (!organization.verified) {
+        toast({
+          title: "Verification Required",
+          description: "Your organization must be verified before you can post opportunities.",
+          variant: "destructive",
+        })
+        router.push("/dashboard/organization")
+      }
+    }
+  }, [organization, router, toast])
+
   const handleAccessibilityChange = (option: string, checked: boolean) => {
     if (checked) {
       setFormData({ ...formData, accessibilityFeatures: [...formData.accessibilityFeatures, option] })
@@ -57,43 +78,99 @@ export default function CreateOpportunityPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const { generateId } = require("@/lib/utils/id")
-    
-    const newOpportunity = {
-      id: generateId(),
-      organizationId: user!.id,
-      organizationName: organization.orgName,
-      title: formData.title,
-      description: formData.description,
-      requirements: formData.requirements.split("\n").filter((r) => r.trim()),
-      location: formData.location,
-      type: formData.type,
-      accessibilityFeatures: formData.accessibilityFeatures,
-      skills: formData.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s),
-      status: organization.verified ? "approved" : "pending",
-      createdAt: new Date().toISOString(),
-      applications: 0,
+    try {
+      const response = await fetch("/api/opportunities", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          requirements: formData.requirements.split("\n").filter((r) => r.trim()),
+          location: formData.location,
+          type: formData.type,
+          accessibilityFeatures: formData.accessibilityFeatures,
+          skills: formData.skills
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s),
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Opportunity posted!",
+          description: organization.verified
+            ? "Your opportunity is now live."
+            : "Your opportunity is pending admin approval.",
+        })
+        router.push("/dashboard/organization")
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create opportunity",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error creating opportunity:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create opportunity. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
+  }
 
-    const opportunities = getOpportunities()
-    saveOpportunities([...opportunities, newOpportunity])
-
-    toast({
-      title: "Opportunity posted!",
-      description: organization.verified
-        ? "Your opportunity is now live."
-        : "Your opportunity is pending admin approval.",
-    })
-
-    setIsSubmitting(false)
-    router.push("/dashboard/organization")
+  // Don't render the form if organization is rejected or not verified
+  if (!organization || (organization as any).rejected || !organization.verified) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        <main className="flex-1 py-8 px-4">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <Link href="/dashboard/organization">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
+            <Card>
+              <CardContent className="pt-6">
+                <Alert variant="destructive">
+                  {(organization as any)?.rejected ? (
+                    <>
+                      <XCircle className="h-5 w-5" />
+                      <AlertTitle>Access Denied</AlertTitle>
+                      <AlertDescription>
+                        Your organization verification has been rejected. You cannot post opportunities. 
+                        Please contact support for more information.
+                      </AlertDescription>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-5 w-5" />
+                      <AlertTitle>Verification Required</AlertTitle>
+                      <AlertDescription>
+                        Your organization must be verified by an admin before you can post opportunities. 
+                        Please wait for admin approval.
+                      </AlertDescription>
+                    </>
+                  )}
+                </Alert>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <SiteFooter />
+      </div>
+    )
   }
 
   return (
@@ -119,7 +196,7 @@ export default function CreateOpportunityPage() {
                   <Label htmlFor="title">Opportunity Title</Label>
                   <Input
                     id="title"
-                    placeholder="e.g., Community Health Education Volunteer"
+                    placeholder=""
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
@@ -130,7 +207,7 @@ export default function CreateOpportunityPage() {
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    placeholder="Describe the volunteer opportunity, responsibilities, and impact..."
+                    placeholder=""
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={5}
@@ -142,7 +219,7 @@ export default function CreateOpportunityPage() {
                   <Label htmlFor="requirements">Requirements (one per line)</Label>
                   <Textarea
                     id="requirements"
-                    placeholder="Good communication skills&#10;Interest in public health&#10;Ability to work with diverse communities"
+                    placeholder=""
                     value={formData.requirements}
                     onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
                     rows={4}
@@ -154,7 +231,7 @@ export default function CreateOpportunityPage() {
                     <Label htmlFor="location">Location</Label>
                     <Input
                       id="location"
-                      placeholder="e.g., Kigali, Rwanda or Remote"
+                      placeholder=""
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       required
@@ -183,7 +260,7 @@ export default function CreateOpportunityPage() {
                   <Label htmlFor="skills">Required Skills (comma separated)</Label>
                   <Input
                     id="skills"
-                    placeholder="e.g., Communication, Public Speaking, Health Education"
+                    placeholder=""
                     value={formData.skills}
                     onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
                   />

@@ -6,52 +6,121 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { MapPin, Users, Calendar, Trash2 } from "lucide-react"
+import { MapPin, Users, Calendar, Trash2, XCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { getOpportunities, saveOpportunities } from "@/lib/mock-data"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function OrganizationOpportunities() {
-  const { user } = useAuth()
+  const { user, getAuthHeaders } = useAuth()
   const { toast } = useToast()
   const [opportunities, setOpportunities] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  const isRejected = (user as any)?.rejected
+  const isVerified = user?.verified
+  const canPostOpportunities = isVerified && !isRejected
 
   useEffect(() => {
-    const loadOpportunities = () => {
-      if (user?._id || user?.id) {
+    let isMounted = true
+    let initialLoad = true
+    
+    const loadOpportunities = async () => {
+      if (!user?._id && !user?.id) {
+        if (isMounted) {
+          setOpportunities([])
+          setIsLoading(false)
+        }
+        return
+      }
+
+      try {
         const organizationId = user._id || user.id
-        const opps = getOpportunities().filter((opp) => opp.organizationId === organizationId)
-        setOpportunities(opps)
-      } else {
-        setOpportunities([])
+        const params = new URLSearchParams()
+        params.append("organizationId", organizationId)
+        
+        const response = await fetch(`/api/opportunities?${params.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+        
+        if (!isMounted) return
+        
+        if (response.ok) {
+          const data = await response.json()
+          const newOpportunities = data.opportunities || []
+          
+          // Only update if data actually changed
+          setOpportunities((prev) => {
+            const prevIds = new Set(prev.map((o) => o.id || o._id).sort())
+            const newIds = new Set(newOpportunities.map((o) => o.id || o._id).sort())
+            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
+              return newOpportunities
+            }
+            // Check if status or applications count changed
+            const hasChange = prev.some((prevOpp) => {
+              const newOpp = newOpportunities.find((o) => (o.id || o._id) === (prevOpp.id || prevOpp._id))
+              return newOpp && (newOpp.status !== prevOpp.status || newOpp.applications !== prevOpp.applications)
+            })
+            return hasChange ? newOpportunities : prev
+          })
+        }
+      } catch (error) {
+        console.error("Error loading opportunities:", error)
+      } finally {
+        if (isMounted && initialLoad) {
+          setIsLoading(false)
+          initialLoad = false
+        }
       }
     }
 
     loadOpportunities()
-    window.addEventListener("focus", loadOpportunities)
-    // Refresh every 2 seconds to get real-time application count updates
-    const interval = setInterval(loadOpportunities, 2000)
+    // Only refresh on window focus, not automatically
+    const handleFocus = () => {
+      if (isMounted) {
+        loadOpportunities()
+      }
+    }
+    window.addEventListener("focus", handleFocus)
 
     return () => {
-      window.removeEventListener("focus", loadOpportunities)
-      clearInterval(interval)
+      isMounted = false
+      window.removeEventListener("focus", handleFocus)
     }
   }, [user?._id, user?.id])
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      const allOpportunities = getOpportunities()
-      const updated = allOpportunities.filter(
-        (opp) => opp.id !== id && (opp as any)._id !== id
-      )
-      saveOpportunities(updated)
-
-      const organizationId = user?._id || user?.id
-      setOpportunities(updated.filter((opp) => opp.organizationId === organizationId))
-
-      toast({
-        title: "Opportunity deleted",
-        description: "The opportunity has been removed.",
+      const response = await fetch(`/api/opportunities/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
       })
+
+      if (response.ok) {
+        // Reload opportunities
+        const organizationId = user?._id || user?.id
+        const params = new URLSearchParams()
+        params.append("organizationId", organizationId || "")
+        const reloadResponse = await fetch(`/api/opportunities?${params.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+        if (reloadResponse.ok) {
+          const data = await reloadResponse.json()
+          setOpportunities(data.opportunities || [])
+        }
+
+        toast({
+          title: "Opportunity deleted",
+          description: "The opportunity has been removed.",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to delete opportunity",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       console.error("Error deleting opportunity:", error)
       toast({
@@ -80,18 +149,84 @@ export function OrganizationOpportunities() {
           <h2 className="text-3xl font-bold mb-2">My Opportunities</h2>
           <p className="text-muted-foreground">Manage your posted volunteer opportunities</p>
         </div>
-        <Link href="/dashboard/organization/create">
-          <Button>Post New Opportunity</Button>
-        </Link>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Link href={canPostOpportunities ? "/dashboard/organization/create" : "#"}>
+                  <Button disabled={!canPostOpportunities}>
+                    Post New Opportunity
+                  </Button>
+                </Link>
+              </span>
+            </TooltipTrigger>
+            {!canPostOpportunities && (
+              <TooltipContent>
+                <p>
+                  {isRejected 
+                    ? "Your organization verification has been rejected. You cannot post opportunities." 
+                    : "Your organization must be verified before you can post opportunities."}
+                </p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
-      {opportunities.length === 0 ? (
+      {!canPostOpportunities && (
+        <Alert variant={isRejected ? "destructive" : "default"}>
+          {isRejected ? (
+            <>
+              <XCircle className="h-5 w-5" />
+              <AlertTitle>Access Denied</AlertTitle>
+              <AlertDescription>
+                Your organization verification has been rejected. You cannot post new opportunities. 
+                Please contact support for more information.
+              </AlertDescription>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-5 w-5" />
+              <AlertTitle>Verification Required</AlertTitle>
+              <AlertDescription>
+                Your organization must be verified by an admin before you can post opportunities. 
+                Please wait for admin approval.
+              </AlertDescription>
+            </>
+          )}
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-muted-foreground text-center">Loading opportunities...</p>
+          </CardContent>
+        </Card>
+      ) : opportunities.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground text-center mb-4">You haven't posted any opportunities yet.</p>
-            <Link href="/dashboard/organization/create">
-              <Button>Post Your First Opportunity</Button>
-            </Link>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Link href={canPostOpportunities ? "/dashboard/organization/create" : "#"}>
+                      <Button disabled={!canPostOpportunities}>Post Your First Opportunity</Button>
+                    </Link>
+                  </span>
+                </TooltipTrigger>
+                {!canPostOpportunities && (
+                  <TooltipContent>
+                    <p>
+                      {isRejected 
+                        ? "Your organization verification has been rejected. You cannot post opportunities." 
+                        : "Your organization must be verified before you can post opportunities."}
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </CardContent>
         </Card>
       ) : (
@@ -131,9 +266,9 @@ export function OrganizationOpportunities() {
                   ))}
                 </div>
 
-                <div className="flex gap-2">
-                  <Link href={`/opportunities/${opportunity._id || opportunity.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full bg-transparent">
+                <div className="flex gap-2 flex-wrap">
+                  <Link href={`/opportunities/${opportunity._id || opportunity.id}`}>
+                    <Button variant="outline" className="bg-transparent">
                       View Details
                     </Button>
                   </Link>

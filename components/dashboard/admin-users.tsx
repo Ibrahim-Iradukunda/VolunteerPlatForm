@@ -19,26 +19,92 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/lib/auth-context"
 
 export function AdminUsers() {
   const { toast } = useToast()
+  const { token, isAuthenticated } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState<"all" | "volunteer" | "organization">("all")
   const [users, setUsers] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load users from localStorage
-    loadUsers()
-  }, [])
+    let isMounted = true
+    let initialLoad = true
 
-  const loadUsers = () => {
-    try {
-      const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
-      setUsers(mockUsers)
-    } catch (error) {
-      setUsers([])
+    const loadUsers = async () => {
+      if (!isAuthenticated) {
+        if (isMounted) {
+          setUsers([])
+          setIsLoading(false)
+        }
+        return
+      }
+
+      if (initialLoad) {
+        setIsLoading(true)
+      }
+
+      try {
+        const headers: HeadersInit = { "Content-Type": "application/json" }
+        if (token) {
+          (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`
+        }
+
+        const response = await fetch("/api/admin/users", {
+          headers,
+        })
+
+        if (!isMounted) return
+
+        if (response.ok) {
+          const data = await response.json()
+          const newUsers = data.users || []
+          
+          // Only update if data actually changed
+          setUsers((prev) => {
+            const prevIds = new Set(prev.map((u) => u.id || u._id).sort())
+            const newIds = new Set(newUsers.map((u) => u.id || u._id).sort())
+            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
+              return newUsers
+            }
+            return prev
+          })
+        } else {
+          const error = await response.json().catch(() => ({}))
+          console.error("Failed to load users:", error)
+          setUsers([])
+        }
+      } catch (error) {
+        if (!isMounted) return
+        console.error("Error loading users:", error)
+        setUsers([])
+      } finally {
+        if (isMounted) {
+          if (initialLoad) {
+            setIsLoading(false)
+            initialLoad = false
+          }
+        }
+      }
     }
-  }
+
+    loadUsers()
+    // Only refresh on window focus, not automatically
+    const handleFocus = () => {
+      if (isMounted) {
+        loadUsers()
+      }
+    }
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [isAuthenticated])
 
   const filteredUsers = useMemo(() => {
     return users.filter((u: any) => {
@@ -54,37 +120,51 @@ export function AdminUsers() {
     })
   }, [users, searchQuery, roleFilter])
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     try {
-      // Don't allow deleting admin users
-      const userToDelete = users.find((u: any) => u.id === userId)
-      if (userToDelete?.role === "admin") {
+      const headers: HeadersInit = { "Content-Type": "application/json" }
+      if (token) {
+        (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`
+      }
+      
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers,
+      })
+
+      if (response.ok) {
+        // Close the dialog first
+        setDeleteDialogOpen(null)
+        // Remove from state using both id and _id for compatibility
+        setUsers((prev) => prev.filter((u: any) => {
+          const uId = u.id || u._id
+          return uId !== userId
+        }))
         toast({
-          title: "Cannot delete admin",
-          description: "Admin users cannot be deleted.",
+          title: "User deleted",
+          description: "The user and related data have been removed.",
+        })
+        // Refresh the list to ensure consistency
+        const refreshResponse = await fetch("/api/admin/users", {
+          headers,
+        })
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          setUsers(data.users || [])
+        }
+      } else {
+        const error = await response.json().catch(() => ({}))
+        toast({
+          title: "Error",
+          description: error.error || "Failed to delete user.",
           variant: "destructive",
         })
-        return
       }
-
-      const updatedUsers = users.filter((u: any) => u.id !== userId)
-      localStorage.setItem("mockUsers", JSON.stringify(updatedUsers))
-      setUsers(updatedUsers)
-      
-      // Also delete related applications
-      const { getApplications, saveApplications } = require("@/lib/mock-data")
-      const applications = getApplications()
-      const updatedApplications = applications.filter((app: any) => app.volunteerId !== userId)
-      saveApplications(updatedApplications)
-
-      toast({
-        title: "User deleted",
-        description: "The user and their related data have been removed.",
-      })
     } catch (error) {
+      console.error("Error deleting user:", error)
       toast({
         title: "Error",
-        description: "Failed to delete user.",
+        description: "Failed to delete user. Please try again.",
         variant: "destructive",
       })
     }
@@ -123,7 +203,7 @@ export function AdminUsers() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users..."
+            placeholder=""
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -131,7 +211,7 @@ export function AdminUsers() {
         </div>
         <Select value={roleFilter} onValueChange={(value: any) => setRoleFilter(value)}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by role" />
+            <SelectValue placeholder="" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
@@ -142,7 +222,13 @@ export function AdminUsers() {
       </div>
 
       <div className="grid gap-4">
-        {filteredUsers.length === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading users...</p>
+            </CardContent>
+          </Card>
+        ) : filteredUsers.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground">No users found.</p>
@@ -150,7 +236,7 @@ export function AdminUsers() {
           </Card>
         ) : (
           filteredUsers.map((user: any) => (
-            <Card key={user.id}>
+            <Card key={user.id || user._id}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1 flex-1">
@@ -172,7 +258,7 @@ export function AdminUsers() {
                 <div className="grid sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">User ID</p>
-                    <p className="text-sm font-mono">{user.id}</p>
+                    <p className="text-sm font-mono">{user.id || user._id}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">Joined</p>
@@ -221,7 +307,12 @@ export function AdminUsers() {
                 )}
                 {user.role !== "admin" && (
                   <div className="flex gap-2 pt-2 border-t">
-                    <AlertDialog>
+                    <AlertDialog 
+                      open={deleteDialogOpen === (user.id || user._id)}
+                      onOpenChange={(open) => {
+                        setDeleteDialogOpen(open ? (user.id || user._id) : null)
+                      }}
+                    >
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" className="gap-2">
                           <Trash2 className="h-4 w-4" />
@@ -230,15 +321,19 @@ export function AdminUsers() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete user?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete the user "{user.name || user.orgName || "this user"}" and all their
-                            related data. This action cannot be undone.
+                            This action will permanently delete "{user.name || user.orgName || "this user"}" and all related opportunities, applications, likes, and comments. This cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteUser(user.id)} className="bg-destructive">
+                          <AlertDialogAction
+                            onClick={async () => {
+                              await handleDeleteUser(user.id || user._id)
+                            }}
+                            className="bg-destructive"
+                          >
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>

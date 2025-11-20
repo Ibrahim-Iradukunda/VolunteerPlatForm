@@ -60,7 +60,7 @@ async function createAdmin() {
     if (!email || !password || !name) {
       console.error('Error: All parameters are required')
       console.error('Usage: node scripts/create-admin.js <email> <password> <name>')
-      console.error('Example: node scripts/create-admin.js admin@yourapp.com securepassword123 "Admin User"')
+      console.error('Example: node scripts/create-admin.js <email> <password> <name>')
       db.close()
       process.exit(1)
     }

@@ -38,8 +38,11 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
@@ -49,26 +52,32 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
       <main className="flex-1 py-8 px-4">
         <div className="max-w-7xl mx-auto">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="browse">Browse</TabsTrigger>
-              <TabsTrigger value="applications">Applications</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+            <TabsList className="grid w-full max-w-md grid-cols-3 h-12 bg-muted/50">
+              <TabsTrigger value="overview" className="text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="browse" className="text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Browse
+              </TabsTrigger>
+              <TabsTrigger value="applications" className="text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Applications
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6">
+            <TabsContent value="overview" className="space-y-6 mt-6">
               <VolunteerOverview />
             </TabsContent>
 
-            <TabsContent value="browse" className="space-y-6">
+            <TabsContent value="browse" className="space-y-6 mt-6">
               <VolunteerBrowse />
             </TabsContent>
 
-            <TabsContent value="applications" className="space-y-6">
+            <TabsContent value="applications" className="space-y-6 mt-6">
               <VolunteerApplications />
             </TabsContent>
           </Tabs>

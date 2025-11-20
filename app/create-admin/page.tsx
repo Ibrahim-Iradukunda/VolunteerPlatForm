@@ -91,7 +91,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@example.com"
+                    placeholder=""
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -103,7 +103,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter password"
+                    placeholder=""
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -115,7 +115,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="name"
                     type="text"
-                    placeholder="Admin User"
+                    placeholder=""
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
