@@ -3,139 +3,33 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Briefcase, Users, Building2, CheckCircle, Clock } from "lucide-react"
 import { useMemo, useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { getOpportunities, getApplications } from "@/lib/mock-data"
 
 export function AdminOverview() {
-  const { token, isAuthenticated } = useAuth()
   const [users, setUsers] = useState<any[]>([])
   const [opportunities, setOpportunities] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    let isMounted = true
-
-    let initialLoad = true
-    
-    const loadData = async () => {
-      if (!isAuthenticated) {
-        if (isMounted) {
-          setUsers([])
-          setOpportunities([])
-          setApplications([])
-          setIsLoading(false)
-        }
-        return
-      }
-
-      if (initialLoad) {
-        setIsLoading(true)
-      }
-
-      try {
-        const headers: HeadersInit = { "Content-Type": "application/json" }
-        const authToken = token
-        if (authToken) {
-          (headers as Record<string, string>)["Authorization"] = `Bearer ${authToken}`
-        }
-
-        const usersPromise = fetch("/api/admin/users", {
-          headers,
-        })
-
-        const opportunitiesPromise = fetch("/api/opportunities", {
-          headers,
-        })
-
-        const applicationsPromise = fetch("/api/applications", {
-          headers,
-        })
-
-        const [usersRes, opportunitiesRes, applicationsRes] = await Promise.all([
-          usersPromise,
-          opportunitiesPromise,
-          applicationsPromise,
-        ])
-
-        if (!isMounted) return
-
-        if (usersRes.ok) {
-          const data = await usersRes.json()
-          const newUsers = data.users || []
-          // Only update if data actually changed
-          setUsers((prev) => {
-            const prevIds = new Set(prev.map((u) => u.id || u._id).sort())
-            const newIds = new Set(newUsers.map((u) => u.id || u._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return newUsers
-            }
-            return prev
-          })
-        } else {
-          setUsers([])
-        }
-
-        if (opportunitiesRes.ok) {
-          const data = await opportunitiesRes.json()
-          const newOpportunities = data.opportunities || []
-          // Only update if data actually changed
-          setOpportunities((prev) => {
-            const prevIds = new Set(prev.map((o) => o.id || o._id).sort())
-            const newIds = new Set(newOpportunities.map((o) => o.id || o._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return newOpportunities
-            }
-            return prev
-          })
-        } else {
-          setOpportunities([])
-        }
-
-        if (applicationsRes.ok) {
-          const data = await applicationsRes.json()
-          const newApplications = data.applications || []
-          // Only update if data actually changed
-          setApplications((prev) => {
-            const prevIds = new Set(prev.map((a) => a.id || a._id).sort())
-            const newIds = new Set(newApplications.map((a) => a.id || a._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return newApplications
-            }
-            return prev
-          })
-        } else {
-          setApplications([])
-        }
-      } catch (error) {
-        if (!isMounted) return
-        console.error("Error loading admin overview data:", error)
-        setUsers([])
-        setOpportunities([])
-        setApplications([])
-      } finally {
-        if (isMounted) {
-          if (initialLoad) {
-            setIsLoading(false)
-            initialLoad = false
-          }
-        }
-      }
+    const loadData = () => {
+      // Load data from localStorage
+      const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
+      setUsers(mockUsers)
+      // getOpportunities() now calculates application counts dynamically
+      setOpportunities(getOpportunities())
+      setApplications(getApplications())
     }
 
     loadData()
-    // Only refresh on window focus, not automatically
-    const handleFocus = () => {
-      if (isMounted) {
-        loadData()
-      }
-    }
-    window.addEventListener("focus", handleFocus)
+    window.addEventListener("focus", loadData)
+    // Refresh every 2 seconds to get real-time application count updates
+    const interval = setInterval(loadData, 2000)
 
     return () => {
-      isMounted = false
-      window.removeEventListener("focus", handleFocus)
+      window.removeEventListener("focus", loadData)
+      clearInterval(interval)
     }
-  }, [isAuthenticated, token])
+  }, [])
 
   const stats = useMemo(() => {
     const organizations = users.filter((u: any) => u.role === "organization")
@@ -154,22 +48,6 @@ export function AdminOverview() {
       pendingApplications: applications.filter((app: any) => app.status === "pending").length,
     }
   }, [users, opportunities, applications])
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold mb-2">Admin Dashboard</h2>
-          <p className="text-muted-foreground">Overview of platform statistics and activities</p>
-        </div>
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground">Loading statistics...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">

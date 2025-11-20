@@ -7,80 +7,36 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Calendar, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { getApplications } from "@/lib/mock-data"
 
 export function VolunteerApplications() {
-  const { user, getAuthHeaders, isAuthenticated } = useAuth()
+  const { user } = useAuth()
   const [applications, setApplications] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    let isMounted = true
-    let initialLoad = true
-    
-    const loadApplications = async () => {
-      if (!isAuthenticated || (!user?._id && !user?.id)) {
-        if (isMounted) {
-          setApplications([])
-          setIsLoading(false)
-        }
-        return
-      }
-
-      try {
+    const loadApplications = () => {
+      if (user?._id || user?.id) {
         const volunteerId = user._id || user.id
-        const response = await fetch(`/api/applications?volunteerId=${volunteerId}`, {
-          headers: getAuthHeaders(),
-        })
-        
-        if (!isMounted) return
-        
-        if (response.ok) {
-          const data = await response.json()
-          const apps = data.applications || []
-          const sorted = apps.sort(
-            (a: any, b: any) =>
-              new Date(b.appliedAt || b.createdAt).getTime() - new Date(a.appliedAt || a.createdAt).getTime()
-          )
-          
-          // Only update if data actually changed
-          setApplications((prev) => {
-            const prevIds = new Set(prev.map((a) => a.id || a._id).sort())
-            const newIds = new Set(sorted.map((a) => a.id || a._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return sorted
-            }
-            // Check if status changed
-            const hasStatusChange = prev.some((prevApp) => {
-              const newApp = sorted.find((a) => (a.id || a._id) === (prevApp.id || prevApp._id))
-              return newApp && newApp.status !== prevApp.status
-            })
-            return hasStatusChange ? sorted : prev
-          })
-        }
-      } catch (error) {
-        console.error("Error loading applications:", error)
-      } finally {
-        if (isMounted && initialLoad) {
-          setIsLoading(false)
-          initialLoad = false
-        }
+        const apps = getApplications().filter((app) => app.volunteerId === volunteerId)
+        const sorted = apps.sort(
+          (a: any, b: any) =>
+            new Date(b.appliedAt || b.createdAt).getTime() - new Date(a.appliedAt || a.createdAt).getTime()
+        )
+        setApplications(sorted)
+      } else {
+        setApplications([])
       }
     }
 
     loadApplications()
-    // Only refresh on window focus, not automatically
-    const handleFocus = () => {
-      if (isMounted) {
-        loadApplications()
-      }
-    }
-    window.addEventListener("focus", handleFocus)
+    window.addEventListener("focus", loadApplications)
+    const interval = setInterval(loadApplications, 3000)
 
     return () => {
-      isMounted = false
-      window.removeEventListener("focus", handleFocus)
+      window.removeEventListener("focus", loadApplications)
+      clearInterval(interval)
     }
-  }, [user?._id, user?.id, isAuthenticated])
+  }, [user?._id, user?.id])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -111,13 +67,7 @@ export function VolunteerApplications() {
         <p className="text-muted-foreground">Track the status of your volunteer applications</p>
       </div>
 
-      {isLoading ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground text-center">Loading applications...</p>
-          </CardContent>
-        </Card>
-      ) : applications.length === 0 ? (
+      {applications.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground text-center mb-4">You haven't applied to any opportunities yet.</p>

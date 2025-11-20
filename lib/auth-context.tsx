@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import type { User } from "./types"
 
 interface AuthContextType {
@@ -21,18 +21,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
+    // Guard against SSR - localStorage is only available in the browser
     if (typeof window === "undefined") return
 
-    const storedUser = localStorage.getItem("user")
-    const storedToken = localStorage.getItem("token")
+    // Initialize admin user if it doesn't exist
+    const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
+    const adminExists = mockUsers.some(
+      (u: any) => u.email === "adminibra@gmail.com" && u.role === "admin"
+    )
 
-    if (storedUser && storedToken) {
+    if (!adminExists) {
+      const { generateId } = require("@/lib/utils/id")
+      const adminUser = {
+        id: generateId(),
+        email: "adminibra@gmail.com",
+        password: "admin00",
+        name: "Admin User",
+        role: "admin" as const,
+        createdAt: new Date().toISOString(),
+        verified: true,
+      }
+      mockUsers.push(adminUser)
+      localStorage.setItem("mockUsers", JSON.stringify(mockUsers))
+    }
+
+    // Check for stored user session
+    const storedUser = localStorage.getItem("user")
+    
+    if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-        setToken(storedToken)
+        const user = JSON.parse(storedUser)
+        setUser(user)
         setIsAuthenticated(true)
+        // Token is optional for localStorage
+        const storedToken = localStorage.getItem("token")
+        if (storedToken) {
+          setToken(storedToken)
+        }
       } catch {
+        // Invalid stored data, clear it
         localStorage.removeItem("user")
         localStorage.removeItem("token")
       }
@@ -40,69 +67,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
+    if (typeof window === "undefined") return false
+    // Use localStorage directly
+    const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
+    const foundUser = mockUsers.find((u: any) => u.email === email && u.password === password)
 
-      if (!response.ok) {
-        return false
-      }
-
-      const data = await response.json()
-      if (!data?.user || !data?.token) {
-        return false
-      }
-
-      setUser(data.user)
-      setToken(data.token)
+    if (foundUser) {
+      const { password: _, ...userWithoutPassword } = foundUser
+      setUser(userWithoutPassword)
       setIsAuthenticated(true)
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("user", JSON.stringify(data.user))
-        localStorage.setItem("token", data.token)
+      localStorage.setItem("user", JSON.stringify(userWithoutPassword))
+      // Token is optional for localStorage, but set a dummy token for compatibility
+      if (!localStorage.getItem("token")) {
+        localStorage.setItem("token", "localStorage-auth")
       }
-
+      setToken("localStorage-auth")
       return true
-    } catch (error) {
-      console.error("Login error:", error)
-      return false
     }
+    
+    return false
   }
 
   const register = async (userData: any): Promise<boolean> => {
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      })
+    if (typeof window === "undefined") return false
+    // Use localStorage directly
+    const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
 
-      if (!response.ok) {
-        return false
-      }
-
-      const data = await response.json()
-      if (!data?.user || !data?.token) {
-        return false
-      }
-
-      setUser(data.user)
-      setToken(data.token)
-      setIsAuthenticated(true)
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("user", JSON.stringify(data.user))
-        localStorage.setItem("token", data.token)
-      }
-
-      return true
-    } catch (error) {
-      console.error("Registration error:", error)
+    if (mockUsers.some((u: any) => u.email === userData.email)) {
       return false
     }
+
+    const { generateId } = require("@/lib/utils/id")
+    
+    const newUser = {
+      ...userData,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      verified: userData.role === "organization" ? false : true,
+    }
+
+    mockUsers.push(newUser)
+    localStorage.setItem("mockUsers", JSON.stringify(mockUsers))
+
+    const { password: _, ...userWithoutPassword } = newUser
+    setUser(userWithoutPassword)
+    setIsAuthenticated(true)
+    localStorage.setItem("user", JSON.stringify(userWithoutPassword))
+    return true
   }
 
   const logout = () => {
@@ -115,29 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const getAuthHeaders = useCallback((): HeadersInit => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" }
+  const getAuthHeaders = (): HeadersInit => {
+    const headers: HeadersInit = { "Content-Type": "application/json" }
     if (token) {
       headers["Authorization"] = `Bearer ${token}`
     }
-    return headers as HeadersInit
-  }, [token])
-
-  const value = useMemo(
-    () => ({
-      user,
-      token,
-      login,
-      register,
-      logout,
-      isAuthenticated,
-      getAuthHeaders,
-    }),
-    [user, token, isAuthenticated, getAuthHeaders]
-  )
+    return headers
+  }
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated, getAuthHeaders }}>
       {children}
     </AuthContext.Provider>
   )

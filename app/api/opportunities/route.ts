@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import { findOpportunities, createOpportunity } from "@/lib/db/opportunities"
+import { findOpportunities, createOpportunity, updateOpportunityApplicationCount } from "@/lib/db/opportunities"
 import { findUserById } from "@/lib/db/users"
 import { countApplicationsByOpportunity } from "@/lib/db/applications"
 import { getAuthFromRequest } from "@/lib/utils/auth"
@@ -15,31 +15,27 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type")
     const location = searchParams.get("location")
     const accessibility = searchParams.get("accessibility")
-    const statusParam = searchParams.get("status")
-    // If status is "all" or not provided, return all opportunities (undefined = no filter)
-    // Otherwise use the provided status, or default to "approved" for public views
-    const status = statusParam === "all" ? undefined : (statusParam || "approved")
+    const status = searchParams.get("status") || "approved"
     const organizationId = searchParams.get("organizationId")
 
-    const opportunities = await findOpportunities({
+    const opportunities = findOpportunities({
       search: search || undefined,
       type: type || undefined,
       location: location || undefined,
       accessibility: accessibility || undefined,
-      status: status,
+      status: status || undefined,
       organizationId: organizationId || undefined,
     })
 
-    const opportunitiesWithCounts = await Promise.all(
-      opportunities.map(async (opp) => {
-        const applicationCount = await countApplicationsByOpportunity(opp.id)
-        return {
-          ...opp,
-          _id: opp.id,
-          applications: applicationCount,
-        }
-      })
-    )
+    // Calculate real application counts for each opportunity
+    const opportunitiesWithCounts = opportunities.map((opp) => {
+      const applicationCount = countApplicationsByOpportunity(opp.id)
+      return {
+        ...opp,
+        _id: opp.id, // For compatibility
+        applications: applicationCount,
+      }
+    })
 
     return NextResponse.json({ opportunities: opportunitiesWithCounts })
   } catch (error: any) {
@@ -58,23 +54,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await findUserById(auth.userId)
-    if (!user) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
-
-    // Check if organization is rejected
-    if (user.rejected) {
-      return NextResponse.json({ 
-        error: "Your organization verification has been rejected. You cannot post opportunities. Please contact support for more information." 
-      }, { status: 403 })
-    }
-
-    // Check if organization is verified
-    if (!user.verified) {
-      return NextResponse.json({ 
-        error: "Organization not verified. Your organization must be verified by an admin before you can post opportunities." 
-      }, { status: 403 })
+    const user = findUserById(auth.userId)
+    if (!user || !user.verified) {
+      return NextResponse.json({ error: "Organization not verified" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -92,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const opportunity = await createOpportunity({
+    const opportunity = createOpportunity({
       organizationId: user.id,
       organizationName: user.orgName || user.name,
       title,

@@ -1,10 +1,6 @@
-import connectDB from "./connect"
+import { getDB } from "./connect"
 import bcrypt from "bcryptjs"
 import { generateId } from "@/lib/utils/id"
-import { findOpportunities, deleteOpportunity, updateOpportunityApplicationCount } from "./opportunities"
-import { findApplications, deleteApplication, deleteApplicationsByOpportunity, deleteApplicationsByVolunteer } from "./applications"
-import { deleteCommentsByOpportunity, deleteCommentsByVolunteer } from "./comments"
-import { deleteLikesByOpportunity, deleteLikesByUser } from "./likes"
 
 export interface IUser {
   id: string
@@ -20,7 +16,6 @@ export interface IUser {
   contactInfo?: string
   description?: string
   verified: boolean
-  rejected: boolean
   createdAt: string
   updatedAt: string
 }
@@ -38,21 +33,10 @@ export interface IUserInput {
   contactInfo?: string
   description?: string
   verified?: boolean
-  rejected?: boolean
-}
-
-function mapUserRow(row: any): IUser {
-  return {
-    ...row,
-    skills: JSON.parse(row.skills || "[]"),
-    accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
-    verified: row.verified === 1,
-    rejected: (row.rejected || 0) === 1,
-  }
 }
 
 export async function createUser(userData: IUserInput): Promise<IUser> {
-  const db = await connectDB()
+  const db = getDB()
   const id = generateId()
   const hashedPassword = await bcrypt.hash(userData.password, 10)
   
@@ -71,68 +55,69 @@ export async function createUser(userData: IUserInput): Promise<IUser> {
     contactInfo: userData.contactInfo,
     description: userData.description,
     verified: userData.verified || false,
-    rejected: userData.rejected || false,
     createdAt: now,
     updatedAt: now,
   }
 
-  await db.execute({
-    sql: `
-      INSERT INTO users (
-        id, email, password, name, role, disabilityStatus, skills, availability,
-        accessibilityNeeds, orgName, contactInfo, description, verified, rejected, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    args: [
-      user.id,
-      user.email,
-      user.password,
-      user.name,
-      user.role,
-      user.disabilityStatus || null,
-      JSON.stringify(user.skills),
-      user.availability || null,
-      JSON.stringify(user.accessibilityNeeds),
-      user.orgName || null,
-      user.contactInfo || null,
-      user.description || null,
-      user.verified ? 1 : 0,
-      user.rejected ? 1 : 0,
-      user.createdAt,
-      user.updatedAt,
-    ],
-  })
+  db.prepare(`
+    INSERT INTO users (
+      id, email, password, name, role, disabilityStatus, skills, availability,
+      accessibilityNeeds, orgName, contactInfo, description, verified, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    user.id,
+    user.email,
+    user.password,
+    user.name,
+    user.role,
+    user.disabilityStatus || null,
+    JSON.stringify(user.skills),
+    user.availability || null,
+    JSON.stringify(user.accessibilityNeeds),
+    user.orgName || null,
+    user.contactInfo || null,
+    user.description || null,
+    user.verified ? 1 : 0,
+    user.createdAt,
+    user.updatedAt
+  )
 
   return user
 }
 
-export async function findUserByEmail(email: string): Promise<IUser | null> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "SELECT * FROM users WHERE email = ?",
-    args: [email.toLowerCase().trim()],
-  })
-  const row = result.rows[0] as any
+export function findUserByEmail(email: string): IUser | null {
+  const db = getDB()
+  const row = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase().trim()) as any
+  
   if (!row) return null
-  return mapUserRow(row)
+  
+  return {
+    ...row,
+    skills: JSON.parse(row.skills || "[]"),
+    accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
+    verified: row.verified === 1,
+  }
 }
 
-export async function findUserById(id: string): Promise<IUser | null> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "SELECT * FROM users WHERE id = ?",
-    args: [id],
-  })
-  const row = result.rows[0] as any
+export function findUserById(id: string): IUser | null {
+  const db = getDB()
+  const row = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as any
+  
   if (!row) return null
-  return mapUserRow(row)
+  
+  return {
+    ...row,
+    skills: JSON.parse(row.skills || "[]"),
+    accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
+    verified: row.verified === 1,
+  }
 }
 
-export async function findUsers(query: {
+export function findUsers(query: {
   role?: string
   search?: string
-}): Promise<IUser[]> {
-  const db = await connectDB()
+}): IUser[] {
+  const db = getDB()
   let sql = "SELECT * FROM users WHERE 1=1"
   const params: any[] = []
 
@@ -149,18 +134,19 @@ export async function findUsers(query: {
 
   sql += " ORDER BY createdAt DESC"
 
-  const result = await db.execute({
-    sql,
-    args: params,
-  })
-  const rows = result.rows as any[]
+  const rows = db.prepare(sql).all(...params) as any[]
   
-  return rows.map(mapUserRow)
+  return rows.map(row => ({
+    ...row,
+    skills: JSON.parse(row.skills || "[]"),
+    accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
+    verified: row.verified === 1,
+  }))
 }
 
-export async function updateUser(id: string, updates: Partial<IUserInput>): Promise<IUser | null> {
-  const db = await connectDB()
-  const user = await findUserById(id)
+export function updateUser(id: string, updates: Partial<IUserInput>): IUser | null {
+  const db = getDB()
+  const user = findUserById(id)
   if (!user) return null
 
   const fields: string[] = []
@@ -210,10 +196,6 @@ export async function updateUser(id: string, updates: Partial<IUserInput>): Prom
     fields.push("verified = ?")
     values.push(updates.verified ? 1 : 0)
   }
-  if (updates.rejected !== undefined) {
-    fields.push("rejected = ?")
-    values.push(updates.rejected ? 1 : 0)
-  }
 
   if (fields.length === 0) return user
 
@@ -221,57 +203,12 @@ export async function updateUser(id: string, updates: Partial<IUserInput>): Prom
   values.push(new Date().toISOString())
   values.push(id)
 
-  await db.execute({
-    sql: `UPDATE users SET ${fields.join(", ")} WHERE id = ?`,
-    args: values,
-  })
+  db.prepare(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`).run(...values)
   
   return findUserById(id)
 }
 
 export async function comparePassword(user: IUser, candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, user.password)
-}
-
-export async function deleteUser(id: string): Promise<boolean> {
-  const db = await connectDB()
-  const user = await findUserById(id)
-  if (!user) return false
-
-  await db.execute("BEGIN")
-
-  try {
-    await deleteLikesByUser(id)
-    await deleteCommentsByVolunteer(id)
-
-    if (user.role === "volunteer") {
-      const applications = await findApplications({ volunteerId: id })
-      for (const application of applications) {
-        await deleteApplication(application.id)
-        await updateOpportunityApplicationCount(application.opportunityId)
-      }
-      await deleteApplicationsByVolunteer(id)
-    } else if (user.role === "organization") {
-      const opportunities = await findOpportunities({ organizationId: id })
-      for (const opportunity of opportunities) {
-        await deleteLikesByOpportunity(opportunity.id)
-        await deleteCommentsByOpportunity(opportunity.id)
-        await deleteApplicationsByOpportunity(opportunity.id)
-        await deleteOpportunity(opportunity.id)
-      }
-    }
-
-    await db.execute({
-      sql: "DELETE FROM users WHERE id = ?",
-      args: [id],
-    })
-
-    await db.execute("COMMIT")
-    return true
-  } catch (error) {
-    await db.execute("ROLLBACK")
-    console.error("Error deleting user:", error)
-    return false
-  }
 }
 

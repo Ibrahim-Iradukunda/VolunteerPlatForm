@@ -113,7 +113,7 @@ export function OpportunityComments({ opportunityId }: OpportunityCommentsProps)
         {isAuthenticated && (
           <div className="space-y-2">
             <Textarea
-              placeholder=""
+              placeholder="Add a comment..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               rows={3}

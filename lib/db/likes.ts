@@ -1,4 +1,4 @@
-import connectDB from "./connect"
+import { getDB } from "./connect"
 import { generateId } from "@/lib/utils/id"
 
 export interface ILike {
@@ -8,99 +8,62 @@ export interface ILike {
   createdAt: string
 }
 
-export async function toggleLike(opportunityId: string, userId: string): Promise<{ liked: boolean; likesCount: number }> {
-  const db = await connectDB()
+export function toggleLike(opportunityId: string, userId: string): { liked: boolean; likesCount: number } {
+  const db = getDB()
+  
+  // Check if like exists
+  const existing = db.prepare(`
+    SELECT id FROM likes WHERE opportunityId = ? AND userId = ?
+  `).get(opportunityId, userId) as { id: string } | undefined
 
-  const existing = await db.execute({
-    sql: `
-      SELECT id FROM likes WHERE opportunityId = ? AND userId = ?
-    `,
-    args: [opportunityId, userId],
-  })
-  const existingRow = existing.rows[0] as { id: string } | undefined
-
-  if (existingRow) {
-    await db.execute({
-      sql: "DELETE FROM likes WHERE opportunityId = ? AND userId = ?",
-      args: [opportunityId, userId],
-    })
+  if (existing) {
+    // Unlike
+    db.prepare("DELETE FROM likes WHERE opportunityId = ? AND userId = ?").run(opportunityId, userId)
   } else {
+    // Like
     const id = generateId()
     const now = new Date().toISOString()
-    await db.execute({
-      sql: `
-        INSERT INTO likes (id, opportunityId, userId, createdAt)
-        VALUES (?, ?, ?, ?)
-      `,
-      args: [id, opportunityId, userId, now],
-    })
+    db.prepare(`
+      INSERT INTO likes (id, opportunityId, userId, createdAt)
+      VALUES (?, ?, ?, ?)
+    `).run(id, opportunityId, userId, now)
   }
 
-  const countResult = await db.execute({
-    sql: `
-      SELECT COUNT(*) as count FROM likes WHERE opportunityId = ?
-    `,
-    args: [opportunityId],
-  })
-  const countRow = countResult.rows[0] as { count: number }
+  // Get updated count
+  const countResult = db.prepare(`
+    SELECT COUNT(*) as count FROM likes WHERE opportunityId = ?
+  `).get(opportunityId) as { count: number }
 
   return {
-    liked: !existingRow,
-    likesCount: Number(countRow?.count ?? 0),
+    liked: !existing,
+    likesCount: countResult.count,
   }
 }
 
-export async function isLiked(opportunityId: string, userId: string): Promise<boolean> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: `
-      SELECT id FROM likes WHERE opportunityId = ? AND userId = ?
-    `,
-    args: [opportunityId, userId],
-  })
-  return !!result.rows[0]
+export function isLiked(opportunityId: string, userId: string): boolean {
+  const db = getDB()
+  const result = db.prepare(`
+    SELECT id FROM likes WHERE opportunityId = ? AND userId = ?
+  `).get(opportunityId, userId)
+  
+  return !!result
 }
 
-export async function getLikesCount(opportunityId: string): Promise<number> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: `
-      SELECT COUNT(*) as count FROM likes WHERE opportunityId = ?
-    `,
-    args: [opportunityId],
-  })
-  const row = result.rows[0] as { count: number }
-  return Number(row?.count ?? 0)
+export function getLikesCount(opportunityId: string): number {
+  const db = getDB()
+  const result = db.prepare(`
+    SELECT COUNT(*) as count FROM likes WHERE opportunityId = ?
+  `).get(opportunityId) as { count: number }
+  
+  return result.count
 }
 
-export async function getLikedOpportunities(userId: string): Promise<string[]> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: `
-      SELECT opportunityId FROM likes WHERE userId = ?
-    `,
-    args: [userId],
-  })
-  const rows = result.rows as { opportunityId: string }[]
+export function getLikedOpportunities(userId: string): string[] {
+  const db = getDB()
+  const rows = db.prepare(`
+    SELECT opportunityId FROM likes WHERE userId = ?
+  `).all(userId) as { opportunityId: string }[]
+  
   return rows.map(row => row.opportunityId)
 }
-
-export async function deleteLikesByOpportunity(opportunityId: string): Promise<number> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "DELETE FROM likes WHERE opportunityId = ?",
-    args: [opportunityId],
-  })
-  return result.rowsAffected ?? 0
-}
-
-export async function deleteLikesByUser(userId: string): Promise<number> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "DELETE FROM likes WHERE userId = ?",
-    args: [userId],
-  })
-  return result.rowsAffected ?? 0
-}
-
 

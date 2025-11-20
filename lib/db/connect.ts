@@ -1,69 +1,75 @@
-import { createClient, type Client } from "@libsql/client"
+import Database from "better-sqlite3"
+import path from "path"
+import fs from "fs"
 
-let db: Client | null = null
-let schemaPromise: Promise<void> | null = null
+// Get database path
+const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "volunteer.db")
 
-function createDbClient(): Client {
-  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_PATH
-  if (!url) {
-    throw new Error("TURSO_DATABASE_URL (or DATABASE_PATH) is not configured")
-  }
-
-  const authToken = process.env.TURSO_AUTH_TOKEN
-
-  return createClient({
-    url,
-    authToken,
-  })
+// Ensure data directory exists
+const dbDir = path.dirname(dbPath)
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true })
 }
 
-function getDB(): Client {
-  if (!db) {
-    db = createDbClient()
-    schemaPromise = initializeSchema(db)
-  }
+// Global database instance
+let db: Database.Database | null = null
 
+function getDB(): Database.Database {
+  if (!db) {
+    db = new Database(dbPath)
+    db.pragma("journal_mode = WAL")
+    db.pragma("foreign_keys = ON")
+    initializeSchema(db)
+  }
   return db
 }
 
-async function initializeSchema(database: Client) {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS users (
+function initializeSchema(database: Database.Database) {
+  // Users table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('volunteer', 'organization', 'admin')),
       disabilityStatus TEXT,
-      skills TEXT,
+      skills TEXT, -- JSON array
       availability TEXT,
-      accessibilityNeeds TEXT,
+      accessibilityNeeds TEXT, -- JSON array
       orgName TEXT,
       contactInfo TEXT,
       description TEXT,
       verified INTEGER DEFAULT 0,
-      rejected INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    `CREATE TABLE IF NOT EXISTS opportunities (
+    )
+  `)
+
+  // Opportunities table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS opportunities (
       id TEXT PRIMARY KEY,
       organizationId TEXT NOT NULL,
       organizationName TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT NOT NULL,
-      requirements TEXT NOT NULL,
+      requirements TEXT NOT NULL, -- JSON array
       location TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('onsite', 'remote', 'hybrid')),
-      accessibilityFeatures TEXT DEFAULT '[]',
-      skills TEXT DEFAULT '[]',
+      accessibilityFeatures TEXT DEFAULT '[]', -- JSON array
+      skills TEXT DEFAULT '[]', -- JSON array
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
       applications INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (organizationId) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-    `CREATE TABLE IF NOT EXISTS comments (
+      FOREIGN KEY (organizationId) REFERENCES users(id)
+    )
+  `)
+
+  // Comments table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       opportunityId TEXT NOT NULL,
       volunteerId TEXT NOT NULL,
@@ -71,9 +77,13 @@ async function initializeSchema(database: Client) {
       content TEXT NOT NULL CHECK(length(content) <= 500),
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (opportunityId) REFERENCES opportunities(id) ON DELETE CASCADE,
-      FOREIGN KEY (volunteerId) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-    `CREATE TABLE IF NOT EXISTS applications (
+      FOREIGN KEY (volunteerId) REFERENCES users(id)
+    )
+  `)
+
+  // Applications table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS applications (
       id TEXT PRIMARY KEY,
       volunteerId TEXT NOT NULL,
       volunteerName TEXT NOT NULL,
@@ -82,11 +92,15 @@ async function initializeSchema(database: Client) {
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'rejected')),
       message TEXT DEFAULT '',
       appliedAt TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (volunteerId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (volunteerId) REFERENCES users(id),
       FOREIGN KEY (opportunityId) REFERENCES opportunities(id) ON DELETE CASCADE,
       UNIQUE(volunteerId, opportunityId)
-    )`,
-    `CREATE TABLE IF NOT EXISTS likes (
+    )
+  `)
+
+  // Likes table (many-to-many relationship)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS likes (
       id TEXT PRIMARY KEY,
       opportunityId TEXT NOT NULL,
       userId TEXT NOT NULL,
@@ -94,38 +108,29 @@ async function initializeSchema(database: Client) {
       FOREIGN KEY (opportunityId) REFERENCES opportunities(id) ON DELETE CASCADE,
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(opportunityId, userId)
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
-    `CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
-    `CREATE INDEX IF NOT EXISTS idx_opportunities_organizationId ON opportunities(organizationId)`,
-    `CREATE INDEX IF NOT EXISTS idx_opportunities_status ON opportunities(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_opportunities_type ON opportunities(type)`,
-    `CREATE INDEX IF NOT EXISTS idx_comments_opportunityId ON comments(opportunityId)`,
-    `CREATE INDEX IF NOT EXISTS idx_comments_volunteerId ON comments(volunteerId)`,
-    `CREATE INDEX IF NOT EXISTS idx_applications_volunteerId ON applications(volunteerId)`,
-    `CREATE INDEX IF NOT EXISTS idx_applications_opportunityId ON applications(opportunityId)`,
-    `CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_likes_opportunityId ON likes(opportunityId)`,
-    `CREATE INDEX IF NOT EXISTS idx_likes_userId ON likes(userId)`
-  ]
+    )
+  `)
 
-  for (const statement of statements) {
-    await database.execute(statement)
-  }
-
-  try {
-    await database.execute(`ALTER TABLE users ADD COLUMN rejected INTEGER DEFAULT 0`)
-  } catch {
-    // Column already exists
-  }
+  // Create indexes
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    CREATE INDEX IF NOT EXISTS idx_opportunities_organizationId ON opportunities(organizationId);
+    CREATE INDEX IF NOT EXISTS idx_opportunities_status ON opportunities(status);
+    CREATE INDEX IF NOT EXISTS idx_opportunities_type ON opportunities(type);
+    CREATE INDEX IF NOT EXISTS idx_comments_opportunityId ON comments(opportunityId);
+    CREATE INDEX IF NOT EXISTS idx_comments_volunteerId ON comments(volunteerId);
+    CREATE INDEX IF NOT EXISTS idx_applications_volunteerId ON applications(volunteerId);
+    CREATE INDEX IF NOT EXISTS idx_applications_opportunityId ON applications(opportunityId);
+    CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+    CREATE INDEX IF NOT EXISTS idx_likes_opportunityId ON likes(opportunityId);
+    CREATE INDEX IF NOT EXISTS idx_likes_userId ON likes(userId);
+  `)
 }
 
+// Connect function (for compatibility with existing code)
 async function connectDB() {
-  const database = getDB()
-  if (schemaPromise) {
-    await schemaPromise
-  }
-  return database
+  return getDB()
 }
 
 export default connectDB

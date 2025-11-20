@@ -1,4 +1,4 @@
-import connectDB from "./connect"
+import { getDB } from "./connect"
 import { generateId } from "@/lib/utils/id"
 
 export interface IComment {
@@ -17,8 +17,8 @@ export interface ICommentInput {
   content: string
 }
 
-export async function createComment(commentData: ICommentInput): Promise<IComment> {
-  const db = await connectDB()
+export function createComment(commentData: ICommentInput): IComment {
+  const db = getDB()
   const id = generateId()
   const now = new Date().toISOString()
   
@@ -31,37 +31,30 @@ export async function createComment(commentData: ICommentInput): Promise<ICommen
     createdAt: now,
   }
 
-  await db.execute({
-    sql: `
-      INSERT INTO comments (id, opportunityId, volunteerId, volunteerName, content, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
-    args: [
-      comment.id,
-      comment.opportunityId,
-      comment.volunteerId,
-      comment.volunteerName,
-      comment.content,
-      comment.createdAt,
-    ],
-  })
+  db.prepare(`
+    INSERT INTO comments (id, opportunityId, volunteerId, volunteerName, content, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    comment.id,
+    comment.opportunityId,
+    comment.volunteerId,
+    comment.volunteerName,
+    comment.content,
+    comment.createdAt
+  )
 
   return comment
 }
 
-export async function findCommentsByOpportunityId(opportunityId: string): Promise<IComment[]> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: `
-      SELECT c.*, u.email as volunteerEmail
-      FROM comments c
-      LEFT JOIN users u ON c.volunteerId = u.id
-      WHERE c.opportunityId = ?
-      ORDER BY c.createdAt DESC
-    `,
-    args: [opportunityId],
-  })
-  const rows = result.rows as any[]
+export function findCommentsByOpportunityId(opportunityId: string): IComment[] {
+  const db = getDB()
+  const rows = db.prepare(`
+    SELECT c.*, u.email as volunteerEmail
+    FROM comments c
+    LEFT JOIN users u ON c.volunteerId = u.id
+    WHERE c.opportunityId = ?
+    ORDER BY c.createdAt DESC
+  `).all(opportunityId) as any[]
   
   return rows.map(row => ({
     id: row.id,
@@ -72,23 +65,4 @@ export async function findCommentsByOpportunityId(opportunityId: string): Promis
     createdAt: row.createdAt,
   }))
 }
-
-export async function deleteCommentsByOpportunity(opportunityId: string): Promise<number> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "DELETE FROM comments WHERE opportunityId = ?",
-    args: [opportunityId],
-  })
-  return result.rowsAffected ?? 0
-}
-
-export async function deleteCommentsByVolunteer(volunteerId: string): Promise<number> {
-  const db = await connectDB()
-  const result = await db.execute({
-    sql: "DELETE FROM comments WHERE volunteerId = ?",
-    args: [volunteerId],
-  })
-  return result.rowsAffected ?? 0
-}
-
 

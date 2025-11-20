@@ -4,83 +4,41 @@ import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
-import { Briefcase, Clock, CheckCircle, XCircle, TrendingUp, UserCircle, Mail, Calendar, Heart, Accessibility } from "lucide-react"
+import { Briefcase, Clock, CheckCircle } from "lucide-react"
 import type { Volunteer } from "@/lib/types"
+import { getApplications, getOpportunities } from "@/lib/mock-data"
 
 export function VolunteerOverview() {
-  const { user, getAuthHeaders } = useAuth()
+  const { user } = useAuth()
   const volunteer = user as Volunteer
   const [applications, setApplications] = useState<any[]>([])
-  const [opportunities, setOpportunities] = useState<any[]>([])
+  const [opportunities, setOpportunities] = useState<any[]>(getOpportunities())
 
   useEffect(() => {
-    let isMounted = true
-    
-    const loadData = async () => {
-      if (!isMounted) return
-      
-      try {
-        // Load opportunities from API
-        const params = new URLSearchParams()
-        params.append("status", "approved")
-        const oppResponse = await fetch(`/api/opportunities?${params.toString()}`)
-        if (oppResponse.ok) {
-          const oppData = await oppResponse.json()
-          const allOpportunities = oppData.opportunities || []
-          
-          // Only update if data actually changed
-          setOpportunities((prev) => {
-            const prevIds = new Set(prev.map((o) => o.id || o._id).sort())
-            const newIds = new Set(allOpportunities.map((o) => o.id || o._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return allOpportunities
-            }
-            return prev
-          })
-        }
+    const loadData = () => {
+      const allOpportunities = getOpportunities()
+      setOpportunities(allOpportunities)
 
-        // Load applications from API
-        if (user?._id || user?.id) {
-          const volunteerId = user._id || user.id
-          const appResponse = await fetch(`/api/applications?volunteerId=${volunteerId}`, {
-            headers: getAuthHeaders(),
-          })
-          if (appResponse.ok) {
-            const appData = await appResponse.json()
-            const myApplications = appData.applications || []
-            
-            // Only update if data actually changed
-            setApplications((prev) => {
-              const prevIds = new Set(prev.map((a) => a.id || a._id).sort())
-              const newIds = new Set(myApplications.map((a) => a.id || a._id).sort())
-              if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-                return myApplications
-              }
-              return prev
-            })
-          }
-        } else {
-          setApplications([])
-        }
-      } catch (error) {
-        console.error("Error loading data:", error)
+      if (user?._id || user?.id) {
+        const volunteerId = user._id || user.id
+        const allApplications = getApplications()
+        const myApplications = allApplications.filter((app) => app.volunteerId === volunteerId)
+        setApplications(myApplications)
+      } else {
+        setApplications([])
       }
     }
 
     loadData()
-    // Only refresh on window focus, not automatically
-    const handleFocus = () => {
-      if (isMounted) {
-        loadData()
-      }
-    }
-    window.addEventListener("focus", handleFocus)
+    window.addEventListener("focus", loadData)
+    // Refresh every 2 seconds to get real-time application count updates
+    const interval = setInterval(loadData, 2000)
 
     return () => {
-      isMounted = false
-      window.removeEventListener("focus", handleFocus)
+      window.removeEventListener("focus", loadData)
+      clearInterval(interval)
     }
-  }, [user?._id, user?.id, getAuthHeaders])
+  }, [user?._id, user?.id])
 
   const approvedOpportunities = useMemo(() => {
     return opportunities.filter((opp) => opp.status === "approved")
@@ -94,107 +52,81 @@ export function VolunteerOverview() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
-      <div className="space-y-2">
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-          Welcome back, {volunteer?.name}!
-        </h2>
-        <p className="text-lg text-muted-foreground">Here's an overview of your volunteer activity</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold mb-2">Welcome back, {volunteer?.name}!</h2>
+        <p className="text-muted-foreground">Here's an overview of your volunteer activity</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-2 hover:shadow-lg transition-all duration-300 hover:border-primary/20">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold">Total Applications</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Briefcase className="h-5 w-5 text-primary" aria-hidden="true" />
-            </div>
+            <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">All time</p>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 hover:shadow-lg transition-all duration-300 hover:border-yellow-500/20">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold">Pending</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-yellow-600" aria-hidden="true" />
-            </div>
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting response</p>
+            <div className="text-2xl font-bold">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground">Awaiting response</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 hover:shadow-lg transition-all duration-300 hover:border-green-500/20">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold">Accepted</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />
-            </div>
+            <CardTitle className="text-sm font-medium">Accepted</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.accepted}</div>
-            <p className="text-xs text-muted-foreground mt-1">Successful applications</p>
+            <div className="text-2xl font-bold">{stats.accepted}</div>
+            <p className="text-xs text-muted-foreground">Successful applications</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 hover:shadow-lg transition-all duration-300 hover:border-blue-500/20">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-semibold">Available</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-blue-600" aria-hidden="true" />
-            </div>
+            <CardTitle className="text-sm font-medium">Available</CardTitle>
+            <Briefcase className="h-4 w-4 text-blue-600" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{approvedOpportunities.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Open opportunities</p>
+            <div className="text-2xl font-bold">{approvedOpportunities.length}</div>
+            <p className="text-xs text-muted-foreground">Open opportunities</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <UserCircle className="h-5 w-5 text-primary" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Profile</CardTitle>
+          <CardDescription>Your volunteer information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Email</p>
+              <p className="text-sm">{volunteer?.email}</p>
             </div>
             <div>
-              <CardTitle className="text-xl">Your Profile</CardTitle>
-              <CardDescription className="text-base">Your volunteer information</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                Email
-              </div>
-              <p className="text-sm font-medium">{volunteer?.email}</p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                Availability
-              </div>
-              <p className="text-sm font-medium">{volunteer?.availability || "Not specified"}</p>
+              <p className="text-sm font-medium text-muted-foreground">Availability</p>
+              <p className="text-sm">{volunteer?.availability || "Not specified"}</p>
             </div>
           </div>
 
           {volunteer?.skills && volunteer.skills.length > 0 && (
-            <div className="space-y-3 pt-4 border-t">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Briefcase className="h-4 w-4 text-primary" />
-                Skills
-              </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Skills</p>
               <div className="flex flex-wrap gap-2">
                 {volunteer.skills.map((skill, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs font-medium px-3 py-1">
+                  <Badge key={index} variant="secondary">
                     {skill}
                   </Badge>
                 ))}
@@ -203,14 +135,11 @@ export function VolunteerOverview() {
           )}
 
           {volunteer?.accessibilityNeeds && volunteer.accessibilityNeeds.length > 0 && (
-            <div className="space-y-3 pt-4 border-t">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Accessibility className="h-4 w-4 text-primary" />
-                Accessibility Needs
-              </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Accessibility Needs</p>
               <div className="flex flex-wrap gap-2">
                 {volunteer.accessibilityNeeds.map((need, index) => (
-                  <Badge key={index} variant="outline" className="text-xs font-medium px-3 py-1 bg-primary/5 border-primary/20">
+                  <Badge key={index} variant="outline">
                     {need}
                   </Badge>
                 ))}
@@ -219,12 +148,9 @@ export function VolunteerOverview() {
           )}
 
           {volunteer?.disabilityStatus && (
-            <div className="space-y-2 pt-4 border-t">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Heart className="h-4 w-4 text-primary" />
-                Disability Status
-              </div>
-              <p className="text-sm font-medium">{volunteer.disabilityStatus}</p>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Disability Status</p>
+              <p className="text-sm">{volunteer.disabilityStatus}</p>
             </div>
           )}
         </CardContent>

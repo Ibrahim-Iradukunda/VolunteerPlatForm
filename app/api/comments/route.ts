@@ -17,23 +17,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Opportunity ID is required" }, { status: 400 })
     }
 
-    const comments = await findCommentsByOpportunityId(opportunityId)
+    const comments = findCommentsByOpportunityId(opportunityId)
 
-    const commentsWithEmail = await Promise.all(
-      comments.map(async comment => {
-        const volunteer = await findUserById(comment.volunteerId)
-        return {
-          ...comment,
-          _id: comment.id,
-          volunteerName: comment.volunteerName,
-          volunteerId: {
-            _id: volunteer?.id,
-            name: volunteer?.name || comment.volunteerName,
-            email: volunteer?.email,
-          },
-        }
-      })
-    )
+    // Add volunteer email for compatibility
+    const commentsWithEmail = comments.map(comment => {
+      const volunteer = findUserById(comment.volunteerId)
+      return {
+        ...comment,
+        _id: comment.id,
+        volunteerId: {
+          _id: volunteer?.id,
+          name: volunteer?.name,
+          email: volunteer?.email,
+        },
+      }
+    })
 
     return NextResponse.json({ comments: commentsWithEmail })
   } catch (error: any) {
@@ -63,38 +61,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if opportunity exists
-    const opportunity = await findOpportunityById(opportunityId)
+    const opportunity = findOpportunityById(opportunityId)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
     // Get volunteer info
-    const volunteer = await findUserById(auth.userId)
+    const volunteer = findUserById(auth.userId)
     if (!volunteer) {
       return NextResponse.json({ error: "Volunteer not found" }, { status: 404 })
     }
 
     // Create comment
-    const comment = await createComment({
+    const comment = createComment({
       opportunityId,
       volunteerId: auth.userId,
       volunteerName: volunteer.name,
       content,
     })
 
-    // Return comment with full structure matching GET response
-    return NextResponse.json({ 
-      comment: { 
-        ...comment, 
-        _id: comment.id,
-        volunteerName: comment.volunteerName,
-        volunteerId: {
-          _id: volunteer.id,
-          name: volunteer.name,
-          email: volunteer.email,
-        },
-      } 
-    }, { status: 201 })
+    return NextResponse.json({ comment: { ...comment, _id: comment.id } }, { status: 201 })
   } catch (error: any) {
     console.error("Error creating comment:", error)
     return NextResponse.json({ error: error.message || "Failed to create comment" }, { status: 500 })

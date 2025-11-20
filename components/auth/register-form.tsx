@@ -13,8 +13,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import type { UserRole } from "@/lib/types"
-import { User, Building2, Mail, Lock, UserCircle, Briefcase, Calendar, Heart, Phone, FileText, Sparkles, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -66,10 +64,10 @@ export function RegisterForm() {
         title: "Registration successful",
         description:
           formData.role === "organization"
-            ? "Your account is pending admin approval. Please log in to continue."
-            : "Welcome! Please log in to continue.",
+            ? "Your account is pending admin approval."
+            : "Welcome! You can now access your dashboard.",
       })
-      router.push("/auth/login")
+      router.push("/dashboard")
     } else {
       toast({
         title: "Registration failed",
@@ -82,236 +80,147 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="w-full max-w-2xl border-2 shadow-xl">
-      <CardHeader className="space-y-3 pb-6">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-3xl font-bold">Create Account</CardTitle>
-            <CardDescription className="text-base mt-1">Join our inclusive volunteer community</CardDescription>
-          </div>
-        </div>
+    <Card className="w-full max-w-2xl">
+      <CardHeader>
+        <CardTitle className="text-2xl">Create Account</CardTitle>
+        <CardDescription>Join our inclusive volunteer community</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-semibold flex items-center gap-2">
-                <UserCircle className="h-4 w-4" />
-                Full Name
-              </Label>
+              <Label htmlFor="name">Full Name</Label>
               <Input
                 id="name"
-                placeholder="Enter your full name"
+                placeholder="John Doe"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
                 aria-required="true"
-                className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Email Address
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="your.email@example.com"
+                placeholder="Enter your email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 aria-required="true"
-                className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Password
-              </Label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Create a strong password"
+                placeholder="Create a password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 aria-required="true"
-                className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                I am a...
-              </Label>
+              <Label htmlFor="role">I am a...</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}
               >
-                <SelectTrigger id="role" aria-label="Select your role" className="h-11">
-                  <SelectValue placeholder="Select your role" />
+                <SelectTrigger id="role" aria-label="Select your role">
+                  <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="volunteer" className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Volunteer
-                  </SelectItem>
-                  <SelectItem value="organization" className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Organization
-                  </SelectItem>
+                  <SelectItem value="volunteer">Volunteer</SelectItem>
+                  <SelectItem value="organization">Organization</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           {formData.role === "volunteer" && (
-            <div className="space-y-4 p-6 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in-50 slide-in-from-bottom-4">
-              <div className="flex items-center gap-2 mb-4">
-                <User className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-lg">Volunteer Information</h3>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="skills">Skills (comma separated)</Label>
+                <Input
+                  id="skills"
+                  placeholder="e.g., Teaching, Communication, Technology"
+                  value={formData.skills}
+                  onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                />
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="skills" className="text-sm font-semibold flex items-center gap-2">
-                    <Briefcase className="h-4 w-4" />
-                    Skills
-                  </Label>
-                  <Input
-                    id="skills"
-                    placeholder="e.g., Teaching, Communication, Leadership"
-                    value={formData.skills}
-                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                  <p className="text-xs text-muted-foreground">Separate multiple skills with commas</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="availability" className="text-sm font-semibold flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Availability
-                  </Label>
-                  <Input
-                    id="availability"
-                    placeholder="e.g., Weekends, Evenings, Flexible"
-                    value={formData.availability}
-                    onChange={(e) => setFormData({ ...formData, availability: e.target.value })}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="availability">Availability</Label>
+                <Input
+                  id="availability"
+                  placeholder="e.g., Weekends, Evenings, Full-time"
+                  value={formData.availability}
+                  onChange={(e) => setFormData({ ...formData, availability: e.target.value })}
+                />
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="disabilityStatus" className="text-sm font-semibold flex items-center gap-2">
-                    <Heart className="h-4 w-4" />
-                    Disability Status (optional)
-                  </Label>
-                  <Input
-                    id="disabilityStatus"
-                    placeholder="Optional - Share if comfortable"
-                    value={formData.disabilityStatus}
-                    onChange={(e) => setFormData({ ...formData, disabilityStatus: e.target.value })}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accessibilityNeeds" className="text-sm font-semibold flex items-center gap-2">
-                    <Heart className="h-4 w-4" />
-                    Accessibility Needs (optional)
-                  </Label>
-                  <Input
-                    id="accessibilityNeeds"
-                    placeholder="e.g., Wheelchair access, Sign language"
-                    value={formData.accessibilityNeeds}
-                    onChange={(e) => setFormData({ ...formData, accessibilityNeeds: e.target.value })}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                  <p className="text-xs text-muted-foreground">Separate multiple needs with commas</p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="disabilityStatus">Disability Status (optional)</Label>
+                <Input
+                  id="disabilityStatus"
+                  placeholder="e.g., Visual impairment, Mobility impairment"
+                  value={formData.disabilityStatus}
+                  onChange={(e) => setFormData({ ...formData, disabilityStatus: e.target.value })}
+                />
               </div>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="accessibilityNeeds">Accessibility Needs (comma separated, optional)</Label>
+                <Input
+                  id="accessibilityNeeds"
+                  placeholder="e.g., Wheelchair access, Sign language, Remote work"
+                  value={formData.accessibilityNeeds}
+                  onChange={(e) => setFormData({ ...formData, accessibilityNeeds: e.target.value })}
+                />
+              </div>
+            </>
           )}
 
           {formData.role === "organization" && (
-            <div className="space-y-4 p-6 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in-50 slide-in-from-bottom-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-lg">Organization Information</h3>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="orgName">Organization Name</Label>
+                <Input
+                  id="orgName"
+                  placeholder="Your Organization Name"
+                  value={formData.orgName}
+                  onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
+                  required={formData.role === "organization"}
+                />
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="orgName" className="text-sm font-semibold flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Organization Name
-                  </Label>
-                  <Input
-                    id="orgName"
-                    placeholder="Enter your organization's name"
-                    value={formData.orgName}
-                    onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
-                    required={formData.role === "organization"}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactInfo" className="text-sm font-semibold flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    Contact Information
-                  </Label>
-                  <Input
-                    id="contactInfo"
-                    placeholder="Phone, email, or other contact details"
-                    value={formData.contactInfo}
-                    onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
-                    className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Organization Description
-                  </Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Tell us about your organization, mission, and goals..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={5}
-                    className="transition-all focus:ring-2 focus:ring-primary/20 resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">This will help volunteers understand your organization better</p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactInfo">Contact Information</Label>
+                <Input
+                  id="contactInfo"
+                  placeholder="Phone number or additional email"
+                  value={formData.contactInfo}
+                  onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
+                />
               </div>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Organization Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Tell us about your organization and its mission"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+            </>
           )}
 
-          <div className="pt-4">
-            <Button 
-              type="submit" 
-              className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200" 
-              disabled={isLoading || !formData.role}
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creating account...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  Create Account
-                </span>
-              )}
-            </Button>
-          </div>
+          <Button type="submit" className="w-full" disabled={isLoading || !formData.role}>
+            {isLoading ? "Creating account..." : "Create Account"}
+          </Button>
         </form>
       </CardContent>
     </Card>

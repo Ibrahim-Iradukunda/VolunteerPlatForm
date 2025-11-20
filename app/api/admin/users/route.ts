@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get("role")
     const search = searchParams.get("search")
 
-    const users = await findUsers({
+    const users = findUsers({
       role: role || undefined,
       search: search || undefined,
     })

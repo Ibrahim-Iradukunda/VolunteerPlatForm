@@ -4,8 +4,7 @@ import type { NextRequest } from "next/server"
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET
   if (!secret) {
-    console.warn("JWT_SECRET not set. Falling back to insecure development secret. Do not use in production.")
-    return "development-secret"
+    throw new Error("Please define the JWT_SECRET environment variable inside .env.local")
   }
   return secret
 }
