@@ -1,11 +1,20 @@
 # Deployment Guide
 
-## ⚠️ Important: SQLite Limitation on Vercel
+## ⚠️ CRITICAL: SQLite Cannot Work on Vercel
 
 **SQLite does NOT work on Vercel's serverless platform** because:
-- Vercel uses a read-only filesystem (except `/tmp`)
-- SQLite requires persistent file storage
-- Data in `/tmp` is ephemeral and will be lost
+
+1. **Native Bindings Issue**: `better-sqlite3` requires native C++ bindings that cannot be properly compiled/loaded on Vercel's serverless environment
+2. **Filesystem Limitations**: Vercel uses a read-only filesystem (except `/tmp`)
+3. **No Persistent Storage**: SQLite requires persistent file storage, which Vercel doesn't provide
+4. **Ephemeral Data**: Even if it worked, data in `/tmp` would be lost on each serverless function invocation
+
+### Current Error on Vercel:
+```
+Error: Could not locate the bindings file
+```
+
+This confirms that `better-sqlite3` cannot load its native module on Vercel.
 
 ## Deployment Options
 

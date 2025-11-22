@@ -32,13 +32,46 @@ if (!isVercel && !fs.existsSync(dbDir)) {
 
 // Global database instance
 let db: Database.Database | null = null
+let dbError: Error | null = null
 
 function getDB(): Database.Database {
+  if (dbError) {
+    throw dbError
+  }
+  
   if (!db) {
-    db = new Database(dbPath)
-    db.pragma("journal_mode = WAL")
-    db.pragma("foreign_keys = ON")
-    initializeSchema(db)
+    try {
+      db = new Database(dbPath)
+      db.pragma("journal_mode = WAL")
+      db.pragma("foreign_keys = ON")
+      initializeSchema(db)
+    } catch (error: any) {
+      dbError = error
+      const errorMessage = error?.message || String(error)
+      
+      // Check if it's a native bindings error (Vercel/serverless issue)
+      if (errorMessage.includes("bindings") || errorMessage.includes("better_sqlite3.node")) {
+        const vercelError = new Error(
+          "SQLite cannot work on Vercel. better-sqlite3 requires native bindings that are incompatible with Vercel's serverless environment. " +
+          "Please deploy to Render, Railway, or migrate to PostgreSQL for Vercel deployment. " +
+          "See DEPLOYMENT.md for details."
+        )
+        dbError = vercelError
+        throw vercelError
+      }
+      
+      // Check if it's a filesystem error
+      if (errorMessage.includes("ENOENT") || errorMessage.includes("mkdir")) {
+        const fsError = new Error(
+          "Cannot create database directory. SQLite requires persistent file storage which is not available on Vercel. " +
+          "Please deploy to Render, Railway, or migrate to PostgreSQL."
+        )
+        dbError = fsError
+        throw fsError
+      }
+      
+      throw error
+    }
   }
   return db
 }
