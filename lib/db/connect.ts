@@ -1,77 +1,25 @@
 import Database from "better-sqlite3"
 import path from "path"
 import fs from "fs"
-import os from "os"
-
-// Check if running on Vercel (serverless environment)
-const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV
 
 // Get database path
-// On Vercel, use /tmp (temporary storage, data will be lost on each invocation)
-// In other environments, use the data directory
-let dbPath: string
-if (isVercel) {
-  // Vercel only allows writing to /tmp, but data is ephemeral
-  dbPath = path.join(os.tmpdir(), "volunteer.db")
-  console.warn("⚠️  Running on Vercel - SQLite database will be temporary and data will be lost!")
-  console.warn("⚠️  For production, use a cloud database (PostgreSQL, etc.) or deploy to Render/Railway")
-} else {
-  dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "volunteer.db")
-}
+const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "volunteer.db")
 
-// Ensure data directory exists (only if not on Vercel or using /tmp)
+// Ensure data directory exists
 const dbDir = path.dirname(dbPath)
-if (!isVercel && !fs.existsSync(dbDir)) {
-  try {
-    fs.mkdirSync(dbDir, { recursive: true })
-  } catch (error) {
-    console.error("Failed to create database directory:", error)
-    throw error
-  }
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true })
 }
 
 // Global database instance
 let db: Database.Database | null = null
-let dbError: Error | null = null
 
 function getDB(): Database.Database {
-  if (dbError) {
-    throw dbError
-  }
-  
   if (!db) {
-    try {
-      db = new Database(dbPath)
-      db.pragma("journal_mode = WAL")
-      db.pragma("foreign_keys = ON")
-      initializeSchema(db)
-    } catch (error: any) {
-      dbError = error
-      const errorMessage = error?.message || String(error)
-      
-      // Check if it's a native bindings error (Vercel/serverless issue)
-      if (errorMessage.includes("bindings") || errorMessage.includes("better_sqlite3.node")) {
-        const vercelError = new Error(
-          "SQLite cannot work on Vercel. better-sqlite3 requires native bindings that are incompatible with Vercel's serverless environment. " +
-          "Please deploy to Render, Railway, or migrate to PostgreSQL for Vercel deployment. " +
-          "See DEPLOYMENT.md for details."
-        )
-        dbError = vercelError
-        throw vercelError
-      }
-      
-      // Check if it's a filesystem error
-      if (errorMessage.includes("ENOENT") || errorMessage.includes("mkdir")) {
-        const fsError = new Error(
-          "Cannot create database directory. SQLite requires persistent file storage which is not available on Vercel. " +
-          "Please deploy to Render, Railway, or migrate to PostgreSQL."
-        )
-        dbError = fsError
-        throw fsError
-      }
-      
-      throw error
-    }
+    db = new Database(dbPath)
+    db.pragma("journal_mode = WAL")
+    db.pragma("foreign_keys = ON")
+    initializeSchema(db)
   }
   return db
 }
