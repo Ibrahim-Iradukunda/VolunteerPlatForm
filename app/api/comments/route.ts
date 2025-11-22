@@ -25,9 +25,10 @@ export async function GET(request: NextRequest) {
       return {
         ...comment,
         _id: comment.id,
+        volunteerName: comment.volunteerName,
         volunteerId: {
           _id: volunteer?.id,
-          name: volunteer?.name,
+          name: volunteer?.name || comment.volunteerName,
           email: volunteer?.email,
         },
       }
@@ -80,7 +81,19 @@ export async function POST(request: NextRequest) {
       content,
     })
 
-    return NextResponse.json({ comment: { ...comment, _id: comment.id } }, { status: 201 })
+    // Return comment with full structure matching GET response
+    return NextResponse.json({ 
+      comment: { 
+        ...comment, 
+        _id: comment.id,
+        volunteerName: comment.volunteerName,
+        volunteerId: {
+          _id: volunteer.id,
+          name: volunteer.name,
+          email: volunteer.email,
+        },
+      } 
+    }, { status: 201 })
   } catch (error: any) {
     console.error("Error creating comment:", error)
     return NextResponse.json({ error: error.message || "Failed to create comment" }, { status: 500 })

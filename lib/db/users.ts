@@ -1,6 +1,10 @@
 import { getDB } from "./connect"
 import bcrypt from "bcryptjs"
 import { generateId } from "@/lib/utils/id"
+import { findOpportunities, deleteOpportunity, updateOpportunityApplicationCount } from "./opportunities"
+import { findApplications, deleteApplication, deleteApplicationsByOpportunity, deleteApplicationsByVolunteer } from "./applications"
+import { deleteCommentsByOpportunity, deleteCommentsByVolunteer } from "./comments"
+import { deleteLikesByOpportunity, deleteLikesByUser } from "./likes"
 
 export interface IUser {
   id: string
@@ -16,6 +20,7 @@ export interface IUser {
   contactInfo?: string
   description?: string
   verified: boolean
+  rejected: boolean
   createdAt: string
   updatedAt: string
 }
@@ -33,6 +38,7 @@ export interface IUserInput {
   contactInfo?: string
   description?: string
   verified?: boolean
+  rejected?: boolean
 }
 
 export async function createUser(userData: IUserInput): Promise<IUser> {
@@ -55,6 +61,7 @@ export async function createUser(userData: IUserInput): Promise<IUser> {
     contactInfo: userData.contactInfo,
     description: userData.description,
     verified: userData.verified || false,
+    rejected: userData.rejected || false,
     createdAt: now,
     updatedAt: now,
   }
@@ -62,8 +69,8 @@ export async function createUser(userData: IUserInput): Promise<IUser> {
   db.prepare(`
     INSERT INTO users (
       id, email, password, name, role, disabilityStatus, skills, availability,
-      accessibilityNeeds, orgName, contactInfo, description, verified, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      accessibilityNeeds, orgName, contactInfo, description, verified, rejected, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     user.id,
     user.email,
@@ -78,6 +85,7 @@ export async function createUser(userData: IUserInput): Promise<IUser> {
     user.contactInfo || null,
     user.description || null,
     user.verified ? 1 : 0,
+    user.rejected ? 1 : 0,
     user.createdAt,
     user.updatedAt
   )
@@ -96,6 +104,7 @@ export function findUserByEmail(email: string): IUser | null {
     skills: JSON.parse(row.skills || "[]"),
     accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
     verified: row.verified === 1,
+    rejected: row.rejected === 1,
   }
 }
 
@@ -110,6 +119,7 @@ export function findUserById(id: string): IUser | null {
     skills: JSON.parse(row.skills || "[]"),
     accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
     verified: row.verified === 1,
+    rejected: (row.rejected || 0) === 1,
   }
 }
 
@@ -141,6 +151,7 @@ export function findUsers(query: {
     skills: JSON.parse(row.skills || "[]"),
     accessibilityNeeds: JSON.parse(row.accessibilityNeeds || "[]"),
     verified: row.verified === 1,
+    rejected: (row.rejected || 0) === 1,
   }))
 }
 
@@ -196,6 +207,10 @@ export function updateUser(id: string, updates: Partial<IUserInput>): IUser | nu
     fields.push("verified = ?")
     values.push(updates.verified ? 1 : 0)
   }
+  if (updates.rejected !== undefined) {
+    fields.push("rejected = ?")
+    values.push(updates.rejected ? 1 : 0)
+  }
 
   if (fields.length === 0) return user
 
@@ -210,5 +225,44 @@ export function updateUser(id: string, updates: Partial<IUserInput>): IUser | nu
 
 export async function comparePassword(user: IUser, candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, user.password)
+}
+
+export function deleteUser(id: string): boolean {
+  const db = getDB()
+  const user = findUserById(id)
+  if (!user) return false
+
+  const performDeletion = db.transaction(() => {
+    // Remove likes and comments made by the user (regardless of role)
+    deleteLikesByUser(id)
+    deleteCommentsByVolunteer(id)
+
+    if (user.role === "volunteer") {
+      const applications = findApplications({ volunteerId: id })
+      for (const application of applications) {
+        deleteApplication(application.id)
+        updateOpportunityApplicationCount(application.opportunityId)
+      }
+      deleteApplicationsByVolunteer(id)
+    } else if (user.role === "organization") {
+      const opportunities = findOpportunities({ organizationId: id })
+      for (const opportunity of opportunities) {
+        deleteLikesByOpportunity(opportunity.id)
+        deleteCommentsByOpportunity(opportunity.id)
+        deleteApplicationsByOpportunity(opportunity.id)
+        deleteOpportunity(opportunity.id)
+      }
+    }
+
+    db.prepare("DELETE FROM users WHERE id = ?").run(id)
+  })
+
+  try {
+    performDeletion()
+    return true
+  } catch (error) {
+    console.error("Error deleting user:", error)
+    return false
+  }
 }
 

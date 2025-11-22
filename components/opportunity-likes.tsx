@@ -27,14 +27,22 @@ export function OpportunityLikes({ opportunityId, initialLikes = 0, initialIsLik
 
   const fetchLikeStatus = async () => {
     try {
-      const response = await fetch(`/api/opportunities/${opportunityId}`)
+      const response = await fetch(`/api/opportunities/${opportunityId}`, {
+        headers: isAuthenticated ? getAuthHeaders() : {},
+      })
       if (response.ok) {
         const data = await response.json()
         const opportunity = data.opportunity
-        if (opportunity.likes) {
+        if (opportunity.likesCount !== undefined) {
+          setLikesCount(opportunity.likesCount || 0)
+        } else if (opportunity.likes) {
           setLikesCount(opportunity.likes.length || 0)
-          // Check if current user liked it (if user is authenticated)
-          if (isAuthenticated && opportunity.likes && user) {
+        }
+        // Check if current user liked it (if user is authenticated)
+        if (isAuthenticated && user) {
+          if (opportunity.userLiked !== undefined) {
+            setIsLiked(opportunity.userLiked)
+          } else if (opportunity.likes) {
             const userLiked = opportunity.likes.some((likeId: any) => {
               const likeIdStr = typeof likeId === 'string' ? likeId : likeId.toString()
               const userIdStr = user.id || (user as any)._id?.toString()

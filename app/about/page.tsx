@@ -1,10 +1,11 @@
 "use client"
 
+import Image from "next/image"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Target, Users, Globe, Heart, Lightbulb, Shield } from "lucide-react"
+import { Target, Users, Globe, Heart, Lightbulb, Shield, Mail, Phone, MapPin } from "lucide-react"
 
 export default function AboutPage() {
   return (
@@ -47,6 +48,28 @@ export default function AboutPage() {
               </CardContent>
             </Card>
 
+            {/* Image Section 1 */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-lg">
+                  <Image
+                    src="/blog background.jpg"
+                    alt="Volunteers working together in community service"
+                    fill
+                    className="object-cover"
+                    style={{ objectPosition: "center 30%" }}
+                    priority
+                  />
+                </div>
+                <div className="p-6">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Youth and people with disabilities actively participating in community development activities, 
+                    demonstrating the power of inclusive volunteerism in building stronger African communities.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Problem Statement */}
             <Card>
               <CardHeader>
@@ -63,46 +86,9 @@ export default function AboutPage() {
                   different platforms. This marginalizes many potential volunteers, including those with disabilities,
                   from meaningful participation.
                 </p>
-                <div className="grid md:grid-cols-2 gap-4 mt-6">
-                  <div className="space-y-2">
-                    <p className="font-semibold">WHO</p>
-                    <p className="text-sm text-muted-foreground">
-                      Youth and people with disabilities seeking volunteer opportunities.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold">WHAT</p>
-                    <p className="text-sm text-muted-foreground">
-                      Lack of centralized, accessible, and inclusive volunteer opportunity platforms.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold">WHEN</p>
-                    <p className="text-sm text-muted-foreground">
-                      Currently, during the rise of digital transformation in Africa's education and employment sectors.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-semibold">WHERE</p>
-                    <p className="text-sm text-muted-foreground">
-                      Across African communities, especially urban and semi-urban areas.
-                    </p>
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <p className="font-semibold">WHY</p>
-                    <p className="text-sm text-muted-foreground">
-                      Current systems do not prioritize inclusivity and accessibility, leaving people with disabilities
-                      marginalized.
-                    </p>
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <p className="font-semibold">HOW</p>
-                    <p className="text-sm text-muted-foreground">
-                      By developing a digital platform that consolidates opportunities, provides accessibility filters,
-                      and ensures equal participation.
-                    </p>
-                  </div>
-                </div>
+                <p className="text-muted-foreground leading-relaxed mt-6">
+                  During the rise of digital transformation in Africa's education and employment sectors, youth and people with disabilities across urban and semi-urban communities face challenges due to the lack of a centralized, accessible, and inclusive platform for volunteer opportunities; current systems fail to prioritize inclusivity, leaving people with disabilities marginalized, which is why developing a digital platform that consolidates opportunities, incorporates accessibility filters, and ensures equal participation is essential to address this gap.
+                </p>
               </CardContent>
             </Card>
 
@@ -127,7 +113,7 @@ export default function AboutPage() {
                     <div>
                       <p className="font-semibold mb-1">Accessible Design</p>
                       <p className="text-sm text-muted-foreground">
-                        WCAG 2.1 compliant interface with accessibility filters and features.
+                      Accessible interface with accessibility filters and features.
                       </p>
                     </div>
                   </div>
@@ -164,6 +150,28 @@ export default function AboutPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Image Section 2 */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-lg">
+                  <Image
+                    src="/blogs_bg.jpg"
+                    alt="Digital platform connecting volunteers to opportunities"
+                    fill
+                    className="object-cover"
+                    style={{ objectPosition: "center 30%" }}
+                  />
+                </div>
+                <div className="p-6">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Our digital platform bridges the gap between volunteers and organizations, providing accessible 
+                    tools and features that ensure everyone can participate in meaningful volunteer opportunities 
+                    regardless of their abilities or location.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -227,37 +235,7 @@ export default function AboutPage() {
               </CardContent>
             </Card>
 
-            {/* References */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">References</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>
-                    African Union Youth Volunteer Corps. (2023). Promoting inclusive volunteerism in Africa.{" "}
-                    <a href="https://au.int/en" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                      https://au.int/en
-                    </a>
-                  </li>
-                  <li>
-                    International Labour Organization. (2022). Youth and disability inclusion in community development.{" "}
-                    <a href="https://www.ilo.org/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                      https://www.ilo.org/
-                    </a>
-                  </li>
-                  <li>
-                    United Nations Volunteers. (2023). State of volunteerism report: Building equal communities through
-                    volunteering.{" "}
-                    <a href="https://www.unv.org/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                      https://www.unv.org/
-                    </a>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Contact */}
+            {/* Get Involved */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl">Get Involved</CardTitle>
@@ -283,6 +261,68 @@ export default function AboutPage() {
                       Browse Opportunities
                     </Badge>
                   </a>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contact Us */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-6 w-6 text-primary" aria-hidden="true" />
+                  <CardTitle className="text-2xl">Contact Us</CardTitle>
+                </div>
+                <CardDescription>
+                  Have questions or need support? We're here to help!
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Mail className="h-5 w-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-1">Email</p>
+                      <a 
+                        href="mailto:support@volunteerplatform.africa" 
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        support@volunteerplatform.org
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Phone className="h-5 w-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-1">Phone</p>
+                      <a 
+                        href="tel:+2341234567890" 
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        +250 (789299254)
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 md:col-span-2">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="h-5 w-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-1">Address</p>
+                      <p className="text-sm text-muted-foreground">
+                        Volunteer Platform Africa<br />
+                        Rwanda, Kigali
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    For general inquiries, partnership opportunities, or technical support, please reach out to us through any of the channels above. We typically respond within 24-48 hours.
+                  </p>
                 </div>
               </CardContent>
             </Card>

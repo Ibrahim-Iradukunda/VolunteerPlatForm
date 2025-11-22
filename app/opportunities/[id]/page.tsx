@@ -24,13 +24,11 @@ import { OpportunityComments } from "@/components/opportunity-comments"
 import { OpportunityLikes } from "@/components/opportunity-likes"
 import { SiteFooter } from "@/components/site-footer"
 import type { Opportunity } from "@/lib/types"
-import { getOpportunities, saveOpportunities, getApplications, saveApplications } from "@/lib/mock-data"
-import { generateId } from "@/lib/utils/id"
 
 export default function OpportunityDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, getAuthHeaders } = useAuth()
   const { toast } = useToast()
   const [showApplyDialog, setShowApplyDialog] = useState(false)
   const [applicationMessage, setApplicationMessage] = useState("")
@@ -40,44 +38,97 @@ export default function OpportunityDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const loadData = () => {
-      // Always get fresh opportunities with dynamically calculated application counts
-      const opportunities = getOpportunities()
-      const foundOpportunity = opportunities.find(
-        (opp) => opp.id === params.id || (opp as any)._id === params.id
-      )
-
-      setOpportunity(foundOpportunity || null)
-
-      if (user?.role === "volunteer" && foundOpportunity) {
-        const applications = getApplications()
-        const volunteerId = user._id || user.id
-        const applied = applications.some(
-          (app) =>
-            app.volunteerId === volunteerId &&
-            (app.opportunityId === foundOpportunity.id ||
-              app.opportunityId === (foundOpportunity as any)._id ||
-              app.opportunityId?._id === foundOpportunity.id ||
-              app.opportunityId?._id === (foundOpportunity as any)._id)
-        )
-        setHasApplied(applied)
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        
+        const opportunityId = Array.isArray(params.id) ? params.id[0] : params.id
+        if (!opportunityId) {
+          setOpportunity(null)
+          setIsLoading(false)
+          return
+        }
+        
+        // Try API first
+        try {
+          const response = await fetch(`/api/opportunities/${opportunityId}`, {
+            headers: isAuthenticated ? getAuthHeaders() : {},
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            const foundOpportunity = data.opportunity
+            
+            if (!foundOpportunity) {
+              console.error("Opportunity not found in API response for ID:", opportunityId)
+              setOpportunity(null)
+              setIsLoading(false)
+              return
+            }
+            
+            // Transform API response to match Opportunity type
+            const opportunity: Opportunity = {
+              id: foundOpportunity.id || foundOpportunity._id,
+              _id: foundOpportunity._id || foundOpportunity.id,
+              organizationId: foundOpportunity.organizationId?._id || foundOpportunity.organizationId,
+              organizationName: foundOpportunity.organizationName,
+              title: foundOpportunity.title,
+              description: foundOpportunity.description,
+              requirements: foundOpportunity.requirements || [],
+              location: foundOpportunity.location,
+              type: foundOpportunity.type,
+              accessibilityFeatures: foundOpportunity.accessibilityFeatures || [],
+              skills: foundOpportunity.skills || [],
+              status: foundOpportunity.status,
+              applications: foundOpportunity.applications || 0,
+              createdAt: foundOpportunity.createdAt,
+              updatedAt: foundOpportunity.updatedAt,
+            }
+            
+            setOpportunity(opportunity)
+            await checkApplicationStatus(opportunity)
+            setIsLoading(false)
+            return
+          } else {
+            const errorData = await response.json().catch(() => ({}))
+            console.error("API returned error:", response.status, errorData)
+          }
+        } catch (apiError) {
+          console.error("API fetch failed:", apiError)
+        }
+        
+        // Not found
+        setOpportunity(null)
+      } catch (error) {
+        console.error("Error loading opportunity:", error)
+        setOpportunity(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    const checkApplicationStatus = async (opp: Opportunity) => {
+      if (user?.role === "volunteer" && opp && isAuthenticated) {
+        try {
+          const oppId = opp.id || opp._id
+          const response = await fetch(`/api/applications?volunteerId=${user.id || user._id}&opportunityId=${oppId}`, {
+            headers: getAuthHeaders(),
+          })
+          if (response.ok) {
+            const data = await response.json()
+            setHasApplied((data.applications || []).length > 0)
+          }
+        } catch (error) {
+          // Silent error handling
+          setHasApplied(false)
+        }
       } else {
         setHasApplied(false)
       }
-
-      setIsLoading(false)
     }
 
     loadData()
-    window.addEventListener("focus", loadData)
-    // Refresh every 2 seconds to get real-time updates
-    const interval = setInterval(loadData, 2000)
-
-    return () => {
-      window.removeEventListener("focus", loadData)
-      clearInterval(interval)
-    }
-  }, [params.id, user?._id, user?.id, user?.role])
+  }, [params.id, user?._id, user?.id, user?.role, isAuthenticated, getAuthHeaders])
 
   if (isLoading) {
     return (
@@ -122,53 +173,56 @@ export default function OpportunityDetailPage() {
     setIsSubmitting(true)
 
     try {
-      const applications = getApplications()
-      const volunteerId = user._id || user.id
       const opportunityId = opportunity.id || (opportunity as any)._id
 
       if (!opportunityId) {
         throw new Error("Invalid opportunity")
       }
 
-      // Prevent duplicate applications
-      const alreadyApplied = applications.some(
-        (app) =>
-          app.volunteerId === volunteerId &&
-          (app.opportunityId === opportunityId || app.opportunityId?._id === opportunityId)
-      )
+      // Submit application via API
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          opportunityId,
+          message: applicationMessage,
+        }),
+      })
 
-      if (alreadyApplied) {
-        toast({
-          title: "Already Applied",
-          description: "You have already applied to this opportunity.",
-          variant: "destructive",
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to submit application")
+      }
+
+      // Reload opportunity from API to get updated application count
+      try {
+        const oppResponse = await fetch(`/api/opportunities/${opportunityId}`, {
+          headers: isAuthenticated ? getAuthHeaders() : {},
         })
-        setIsSubmitting(false)
-        return
-      }
-
-      const newApplication = {
-        id: generateId(),
-        volunteerId,
-        volunteerName: user.name,
-        opportunityId,
-        opportunityTitle: opportunity.title,
-        status: "pending" as const,
-        appliedAt: new Date().toISOString(),
-        message: applicationMessage,
-      }
-
-      const updatedApplications = [...applications, newApplication]
-      saveApplications(updatedApplications)
-
-      // Reload opportunity with dynamically calculated application count
-      const opportunities = getOpportunities()
-      const refreshedOpportunity = opportunities.find(
-        (opp) => opp.id === opportunityId || (opp as any)._id === opportunityId
-      )
-
-      if (refreshedOpportunity) {
-        setOpportunity(refreshedOpportunity)
+        if (oppResponse.ok) {
+          const data = await oppResponse.json()
+          const foundOpportunity = data.opportunity
+          const updatedOpportunity: Opportunity = {
+            id: foundOpportunity.id || foundOpportunity._id,
+            _id: foundOpportunity._id || foundOpportunity.id,
+            organizationId: foundOpportunity.organizationId?._id || foundOpportunity.organizationId,
+            organizationName: foundOpportunity.organizationName,
+            title: foundOpportunity.title,
+            description: foundOpportunity.description,
+            requirements: foundOpportunity.requirements || [],
+            location: foundOpportunity.location,
+            type: foundOpportunity.type,
+            accessibilityFeatures: foundOpportunity.accessibilityFeatures || [],
+            skills: foundOpportunity.skills || [],
+            status: foundOpportunity.status,
+            applications: foundOpportunity.applications || 0,
+            createdAt: foundOpportunity.createdAt,
+            updatedAt: foundOpportunity.updatedAt,
+          }
+          setOpportunity(updatedOpportunity)
+        }
+      } catch (error) {
+        console.error("Error refreshing opportunity:", error)
       }
 
       setHasApplied(true)
@@ -294,7 +348,6 @@ export default function OpportunityDetailPage() {
           <div className="flex gap-4">
             <OpportunityLikes
               opportunityId={opportunity._id || opportunity.id}
-              initialLikes={opportunity.applications || 0}
             />
           </div>
 
@@ -313,7 +366,7 @@ export default function OpportunityDetailPage() {
               <Label htmlFor="message">Your Message</Label>
               <Textarea
                 id="message"
-                placeholder="Explain your interest and relevant experience..."
+                placeholder=""
                 value={applicationMessage}
                 onChange={(e) => setApplicationMessage(e.target.value)}
                 rows={6}

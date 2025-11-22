@@ -5,16 +5,19 @@ import { countApplicationsByOpportunity } from "@/lib/db/applications"
 import { findCommentsByOpportunityId } from "@/lib/db/comments"
 import { findUserById } from "@/lib/db/users"
 import { getAuthFromRequest } from "@/lib/utils/auth"
+import { getLikesCount, isLiked } from "@/lib/db/likes"
 
 // GET - Get single opportunity
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await connectDB()
 
-    const opportunity = findOpportunityById(params.id)
+    // Handle both sync and async params (Next.js 13+ vs 15+)
+    const resolvedParams = await Promise.resolve(params)
+    const opportunity = findOpportunityById(resolvedParams.id)
 
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
@@ -29,6 +32,16 @@ export async function GET(
     // Calculate real application count
     const applicationCount = countApplicationsByOpportunity(opportunity.id)
 
+    // Get likes count
+    const likesCount = getLikesCount(opportunity.id)
+
+    // Check if current user liked it (if authenticated)
+    const auth = getAuthFromRequest(request)
+    let userLiked = false
+    if (auth) {
+      userLiked = isLiked(opportunity.id, auth.userId)
+    }
+
     return NextResponse.json({
       opportunity: {
         ...opportunity,
@@ -42,6 +55,9 @@ export async function GET(
         },
         comments,
         applications: applicationCount,
+        likes: Array(likesCount).fill(null).map((_, i) => `like-${i}`), // For compatibility with existing code
+        likesCount,
+        userLiked,
       },
     })
   } catch (error: any) {
@@ -53,7 +69,7 @@ export async function GET(
 // PUT - Update opportunity
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await connectDB()
@@ -63,7 +79,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const opportunity = findOpportunityById(params.id)
+    const resolvedParams = await Promise.resolve(params)
+    const opportunity = findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
@@ -77,7 +94,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const updated = updateOpportunity(params.id, body)
+    const updated = updateOpportunity(resolvedParams.id, body)
 
     if (!updated) {
       return NextResponse.json({ error: "Failed to update opportunity" }, { status: 500 })
@@ -93,7 +110,7 @@ export async function PUT(
 // DELETE - Delete opportunity
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await connectDB()
@@ -103,7 +120,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const opportunity = findOpportunityById(params.id)
+    const resolvedParams = await Promise.resolve(params)
+    const opportunity = findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
@@ -116,7 +134,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    deleteOpportunity(params.id)
+    deleteOpportunity(resolvedParams.id)
 
     return NextResponse.json({ message: "Opportunity deleted successfully" })
   } catch (error: any) {

@@ -22,6 +22,7 @@ export interface Organization extends User {
   contactInfo: string
   description: string
   verified: boolean
+  rejected?: boolean
 }
 
 export interface Admin extends User {

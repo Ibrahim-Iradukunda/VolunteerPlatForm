@@ -6,7 +6,7 @@ import { getAuthFromRequest } from "@/lib/utils/auth"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await connectDB()
@@ -16,12 +16,13 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const opportunity = findOpportunityById(params.id)
+    const resolvedParams = await Promise.resolve(params)
+    const opportunity = findOpportunityById(resolvedParams.id)
     if (!opportunity) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
     }
 
-    const result = toggleLike(params.id, auth.userId)
+    const result = toggleLike(resolvedParams.id, auth.userId)
 
     return NextResponse.json({
       liked: result.liked,

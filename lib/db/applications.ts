@@ -146,3 +146,21 @@ export function updateApplication(id: string, updates: { status?: "pending" | "a
   return findApplicationById(id)
 }
 
+export function deleteApplication(id: string): boolean {
+  const db = getDB()
+  const result = db.prepare("DELETE FROM applications WHERE id = ?").run(id)
+  return result.changes > 0
+}
+
+export function deleteApplicationsByOpportunity(opportunityId: string): number {
+  const db = getDB()
+  const result = db.prepare("DELETE FROM applications WHERE opportunityId = ?").run(opportunityId)
+  return result.changes
+}
+
+export function deleteApplicationsByVolunteer(volunteerId: string): number {
+  const db = getDB()
+  const result = db.prepare("DELETE FROM applications WHERE volunteerId = ?").run(volunteerId)
+  return result.changes
+}
+
