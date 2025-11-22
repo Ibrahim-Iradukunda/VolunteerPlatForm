@@ -1,14 +1,33 @@
 import Database from "better-sqlite3"
 import path from "path"
 import fs from "fs"
+import os from "os"
+
+// Check if running on Vercel (serverless environment)
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV
 
 // Get database path
-const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "volunteer.db")
+// On Vercel, use /tmp (temporary storage, data will be lost on each invocation)
+// In other environments, use the data directory
+let dbPath: string
+if (isVercel) {
+  // Vercel only allows writing to /tmp, but data is ephemeral
+  dbPath = path.join(os.tmpdir(), "volunteer.db")
+  console.warn("⚠️  Running on Vercel - SQLite database will be temporary and data will be lost!")
+  console.warn("⚠️  For production, use a cloud database (PostgreSQL, etc.) or deploy to Render/Railway")
+} else {
+  dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "volunteer.db")
+}
 
-// Ensure data directory exists
+// Ensure data directory exists (only if not on Vercel or using /tmp)
 const dbDir = path.dirname(dbPath)
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true })
+if (!isVercel && !fs.existsSync(dbDir)) {
+  try {
+    fs.mkdirSync(dbDir, { recursive: true })
+  } catch (error) {
+    console.error("Failed to create database directory:", error)
+    throw error
+  }
 }
 
 // Global database instance
