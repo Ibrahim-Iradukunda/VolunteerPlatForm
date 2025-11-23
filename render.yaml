@@ -7,4 +7,4 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-
+    # No publish directory needed for Next.js SSR apps - they run as Node.js services
