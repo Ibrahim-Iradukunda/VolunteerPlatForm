@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type")
     const location = searchParams.get("location")
     const accessibility = searchParams.get("accessibility")
-    const statusParam = searchParams.get("status")
-    // If status is "all" or not provided, return all opportunities (undefined = no filter)
-    // Otherwise use the provided status, or default to "approved" for public views
-    const status = statusParam === "all" ? undefined : (statusParam || "approved")
+    const status = searchParams.get("status") || "approved"
     const organizationId = searchParams.get("organizationId")
 
     const opportunities = findOpportunities({
@@ -26,7 +23,7 @@ export async function GET(request: NextRequest) {
       type: type || undefined,
       location: location || undefined,
       accessibility: accessibility || undefined,
-      status: status,
+      status: status || undefined,
       organizationId: organizationId || undefined,
     })
 
@@ -58,22 +55,8 @@ export async function POST(request: NextRequest) {
     }
 
     const user = findUserById(auth.userId)
-    if (!user) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
-
-    // Check if organization is rejected
-    if (user.rejected) {
-      return NextResponse.json({ 
-        error: "Your organization verification has been rejected. You cannot post opportunities. Please contact support for more information." 
-      }, { status: 403 })
-    }
-
-    // Check if organization is verified
-    if (!user.verified) {
-      return NextResponse.json({ 
-        error: "Organization not verified. Your organization must be verified by an admin before you can post opportunities." 
-      }, { status: 403 })
+    if (!user || !user.verified) {
+      return NextResponse.json({ error: "Organization not verified" }, { status: 403 })
     }
 
     const body = await request.json()

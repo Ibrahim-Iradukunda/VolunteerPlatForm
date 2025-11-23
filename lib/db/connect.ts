@@ -41,18 +41,10 @@ function initializeSchema(database: Database.Database) {
       contactInfo TEXT,
       description TEXT,
       verified INTEGER DEFAULT 0,
-      rejected INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `)
-  
-  // Add rejected column if it doesn't exist (for existing databases)
-  try {
-    database.exec(`ALTER TABLE users ADD COLUMN rejected INTEGER DEFAULT 0`)
-  } catch (e) {
-    // Column already exists, ignore
-  }
 
   // Opportunities table
   database.exec(`
@@ -71,7 +63,7 @@ function initializeSchema(database: Database.Database) {
       applications INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (organizationId) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (organizationId) REFERENCES users(id)
     )
   `)
 
@@ -85,7 +77,7 @@ function initializeSchema(database: Database.Database) {
       content TEXT NOT NULL CHECK(length(content) <= 500),
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (opportunityId) REFERENCES opportunities(id) ON DELETE CASCADE,
-      FOREIGN KEY (volunteerId) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (volunteerId) REFERENCES users(id)
     )
   `)
 
@@ -100,7 +92,7 @@ function initializeSchema(database: Database.Database) {
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'rejected')),
       message TEXT DEFAULT '',
       appliedAt TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (volunteerId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (volunteerId) REFERENCES users(id),
       FOREIGN KEY (opportunityId) REFERENCES opportunities(id) ON DELETE CASCADE,
       UNIQUE(volunteerId, opportunityId)
     )

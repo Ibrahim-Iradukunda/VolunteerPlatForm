@@ -67,15 +67,3 @@ export function getLikedOpportunities(userId: string): string[] {
   return rows.map(row => row.opportunityId)
 }
 
-export function deleteLikesByOpportunity(opportunityId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM likes WHERE opportunityId = ?").run(opportunityId)
-  return result.changes
-}
-
-export function deleteLikesByUser(userId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM likes WHERE userId = ?").run(userId)
-  return result.changes
-}
-

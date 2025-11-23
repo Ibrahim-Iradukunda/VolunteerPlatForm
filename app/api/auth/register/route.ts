@@ -16,15 +16,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Prevent admin role registration through public registration endpoint
-    // Admin users must be created through the admin creation endpoint
-    if (role === "admin") {
-      return NextResponse.json(
-        { error: "Admin accounts cannot be created through registration" },
-        { status: 403 }
-      )
-    }
-
     // Check if user already exists
     const existingUser = findUserByEmail(email)
     if (existingUser) {

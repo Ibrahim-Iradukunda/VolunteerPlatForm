@@ -4,79 +4,29 @@ import { useState, useMemo, useEffect } from "react"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { OpportunityFilters } from "@/components/opportunity-filters"
 import type { Opportunity } from "@/lib/types"
+import { getOpportunities } from "@/lib/mock-data"
 
 export function VolunteerBrowse() {
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [locationFilter, setLocationFilter] = useState("")
   const [accessibilityFilters, setAccessibilityFilters] = useState<string[]>([])
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => getOpportunities())
 
   useEffect(() => {
-    const loadOpportunities = async () => {
-      try {
-        const params = new URLSearchParams()
-        params.append("status", "approved")
-        if (searchQuery) params.append("search", searchQuery)
-        if (typeFilter !== "all") params.append("type", typeFilter)
-        if (locationFilter) params.append("location", locationFilter)
-
-        const response = await fetch(`/api/opportunities?${params.toString()}`)
-        if (response.ok) {
-          const data = await response.json()
-          const apiOpportunities = data.opportunities || []
-          
-          // Transform API response to match Opportunity type
-          const transformedOpportunities: Opportunity[] = apiOpportunities.map((opp: any) => {
-            const oppId = opp.id || opp._id
-            return {
-              id: oppId,
-              _id: oppId, // Ensure both id and _id are set to the same value
-              organizationId: opp.organizationId?._id || opp.organizationId,
-              organizationName: opp.organizationName,
-              title: opp.title,
-              description: opp.description,
-              requirements: opp.requirements || [],
-              location: opp.location,
-              type: opp.type,
-              accessibilityFeatures: opp.accessibilityFeatures || [],
-              skills: opp.skills || [],
-              status: opp.status,
-              applications: opp.applications || 0,
-              createdAt: opp.createdAt,
-              updatedAt: opp.updatedAt,
-            }
-          })
-          
-          // Only update if data actually changed
-          setOpportunities((prev) => {
-            const prevIds = new Set(prev.map((o) => o.id || o._id).sort())
-            const newIds = new Set(transformedOpportunities.map((o) => o.id || o._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return transformedOpportunities
-            }
-            return prev
-          })
-        }
-      } catch (error) {
-        console.error("Error loading opportunities:", error)
-      } finally {
-        setIsLoading(false)
-      }
+    const loadOpportunities = () => {
+      setOpportunities(getOpportunities())
     }
 
     loadOpportunities()
-    // Only refresh on window focus, not automatically
-    const handleFocus = () => {
-      loadOpportunities()
-    }
-    window.addEventListener("focus", handleFocus)
+    window.addEventListener("focus", loadOpportunities)
+    const interval = setInterval(loadOpportunities, 3000)
 
     return () => {
-      window.removeEventListener("focus", handleFocus)
+      window.removeEventListener("focus", loadOpportunities)
+      clearInterval(interval)
     }
-  }, [searchQuery, typeFilter, locationFilter])
+  }, [])
 
   const approvedOpportunities = useMemo(() => {
     return opportunities.filter((opp) => opp.status === "approved")
@@ -128,11 +78,7 @@ export function VolunteerBrowse() {
         </aside>
 
         <div className="lg:col-span-3">
-          {isLoading ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg">Loading opportunities...</p>
-            </div>
-          ) : filteredOpportunities.length > 0 ? (
+          {filteredOpportunities.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-6">
               {filteredOpportunities.map((opportunity) => (
                 <OpportunityCard key={opportunity.id || opportunity._id} opportunity={opportunity} />

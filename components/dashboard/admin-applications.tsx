@@ -7,96 +7,37 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/lib/auth-context"
-import { Briefcase, CheckCircle, XCircle, Search, RefreshCw, User, Trash2 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+import { getApplications, saveApplications } from "@/lib/mock-data"
+import { Briefcase, CheckCircle, XCircle, Search, RefreshCw, User } from "lucide-react"
 
 export function AdminApplications() {
   const { toast } = useToast()
-  const { getAuthHeaders, isAuthenticated } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted" | "rejected">("pending")
-  const [applications, setApplications] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null)
+  const [applications, setApplications] = useState(getApplications())
 
   useEffect(() => {
-    let isMounted = true
-    let initialLoad = true
-    
-    const loadApplications = async () => {
-      if (!isAuthenticated) {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-        return
-      }
-
-      try {
-        const params = new URLSearchParams()
-        if (statusFilter !== "all") {
-          params.append("status", statusFilter)
-        }
-
-        const response = await fetch(`/api/applications?${params.toString()}`, {
-          headers: getAuthHeaders(),
-        })
-        
-        if (!isMounted) return
-        
-        if (response.ok) {
-          const data = await response.json()
-          const newApplications = data.applications || []
-          
-          // Only update if data actually changed
-          setApplications((prev) => {
-            const prevIds = new Set(prev.map((a) => a.id || a._id).sort())
-            const newIds = new Set(newApplications.map((a) => a.id || a._id).sort())
-            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
-              return newApplications
-            }
-            // Check if status changed
-            const hasStatusChange = prev.some((prevApp) => {
-              const newApp = newApplications.find((a) => (a.id || a._id) === (prevApp.id || prevApp._id))
-              return newApp && newApp.status !== prevApp.status
-            })
-            return hasStatusChange ? newApplications : prev
-          })
-        }
-      } catch (error) {
-        console.error("Error loading applications:", error)
-      } finally {
-        if (isMounted && initialLoad) {
-          setIsLoading(false)
-          initialLoad = false
-        }
-      }
+    // Reload applications from localStorage on mount and when tab becomes visible
+    const loadApplications = () => {
+      const apps = getApplications()
+      setApplications(apps)
     }
-
     loadApplications()
-    // Only refresh on window focus, not automatically
+    
+    // Reload when window gains focus (user switches back to tab)
     const handleFocus = () => {
-      if (isMounted) {
-        loadApplications()
-      }
+      loadApplications()
     }
     window.addEventListener("focus", handleFocus)
     
+    // Also check periodically (in case storage event doesn't fire)
+    const interval = setInterval(loadApplications, 3000)
+    
     return () => {
-      isMounted = false
       window.removeEventListener("focus", handleFocus)
+      clearInterval(interval)
     }
-  }, [statusFilter, isAuthenticated])
+  }, [])
 
   const filteredApplications = useMemo(() => {
     return applications.filter((app: any) => {
@@ -112,104 +53,48 @@ export function AdminApplications() {
     })
   }, [applications, searchQuery, statusFilter])
 
-  const refreshApplications = async () => {
-    try {
-      const params = new URLSearchParams()
-      if (statusFilter !== "all") {
-        params.append("status", statusFilter)
-      }
+  const refreshApplications = () => {
+    const apps = getApplications()
+    setApplications(apps)
+    toast({
+      title: "Applications refreshed",
+      description: `Found ${apps.length} total applications.`,
+    })
+  }
 
-      const response = await fetch(`/api/applications?${params.toString()}`, {
-        headers: getAuthHeaders(),
+  const handleStatusChange = (appId: string, newStatus: "pending" | "accepted" | "rejected") => {
+    try {
+      const updated = applications.map((app: any) =>
+        app.id === appId ? { ...app, status: newStatus } : app
+      )
+      saveApplications(updated)
+      setApplications(updated)
+      toast({
+        title: `Application ${newStatus === "accepted" ? "accepted" : newStatus === "rejected" ? "rejected" : "updated"}`,
+        description: `The application status has been updated to ${newStatus}.`,
       })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setApplications(data.applications || [])
-        toast({
-          title: "Applications refreshed",
-          description: `Found ${data.applications?.length || 0} total applications.`,
-        })
-      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to refresh applications",
+        description: "Failed to update application status.",
         variant: "destructive",
       })
     }
   }
 
-  const handleStatusChange = async (appId: string, newStatus: "pending" | "accepted" | "rejected") => {
+  const handleDelete = (appId: string) => {
     try {
-      const response = await fetch(`/api/applications/${appId}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ status: newStatus }),
+      const updated = applications.filter((app: any) => app.id !== appId)
+      saveApplications(updated)
+      setApplications(updated)
+      toast({
+        title: "Application deleted",
+        description: "The application has been removed.",
       })
-
-      if (response.ok) {
-        // Reload applications
-        const params = new URLSearchParams()
-        if (statusFilter !== "all") {
-          params.append("status", statusFilter)
-        }
-        const reloadResponse = await fetch(`/api/applications?${params.toString()}`, {
-          headers: getAuthHeaders(),
-        })
-        if (reloadResponse.ok) {
-          const data = await reloadResponse.json()
-          setApplications(data.applications || [])
-        }
-
-        toast({
-          title: `Application ${newStatus === "accepted" ? "accepted" : newStatus === "rejected" ? "rejected" : "updated"}`,
-          description: `The application status has been updated to ${newStatus}.`,
-        })
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to update application status",
-          variant: "destructive",
-        })
-      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update application status",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDelete = async (appId: string) => {
-    try {
-      const response = await fetch(`/api/applications/${appId}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      })
-
-      if (response.ok) {
-        // Close the dialog first
-        setDeleteDialogOpen(null)
-        setApplications((prev) => prev.filter((application) => application.id !== appId))
-        toast({
-          title: "Application deleted",
-          description: "The application has been removed.",
-        })
-      } else {
-        const error = await response.json().catch(() => ({}))
-        toast({
-          title: "Error",
-          description: error.error || "Failed to delete application",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete application",
+        description: "Failed to delete application.",
         variant: "destructive",
       })
     }
@@ -243,7 +128,7 @@ export function AdminApplications() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder=""
+            placeholder="Search applications..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -251,7 +136,7 @@ export function AdminApplications() {
         </div>
         <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="" />
+            <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
@@ -284,13 +169,7 @@ export function AdminApplications() {
       </div>
 
       <div className="grid gap-4">
-        {isLoading ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground">Loading applications...</p>
-            </CardContent>
-          </Card>
-        ) : filteredApplications.length === 0 ? (
+        {filteredApplications.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground mb-2">
@@ -383,38 +262,15 @@ export function AdminApplications() {
                       Mark as Accepted
                     </Button>
                   )}
-                  <AlertDialog
-                    open={deleteDialogOpen === app.id}
-                    onOpenChange={(open) => {
-                      setDeleteDialogOpen(open ? app.id : null)
-                    }}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(app.id)}
+                    className="gap-2"
                   >
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="destructive" className="gap-2">
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete application?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently remove the application from {app.volunteerName}. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={async () => {
-                            await handleDelete(app.id)
-                          }}
-                          className="bg-destructive"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    <XCircle className="h-4 w-4" />
+                    Delete
+                  </Button>
                 </div>
               </CardContent>
             </Card>

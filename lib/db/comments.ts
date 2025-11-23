@@ -66,15 +66,3 @@ export function findCommentsByOpportunityId(opportunityId: string): IComment[] {
   }))
 }
 
-export function deleteCommentsByOpportunity(opportunityId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM comments WHERE opportunityId = ?").run(opportunityId)
-  return result.changes
-}
-
-export function deleteCommentsByVolunteer(volunteerId: string): number {
-  const db = getDB()
-  const result = db.prepare("DELETE FROM comments WHERE volunteerId = ?").run(volunteerId)
-  return result.changes
-}
-

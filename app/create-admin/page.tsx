@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
-import { Loader2 } from "lucide-react"
+import { generateId } from "@/lib/utils/id"
 
 export default function CreateAdminPage() {
   const { toast } = useToast()
@@ -17,38 +17,44 @@ export default function CreateAdminPage() {
   const [name, setName] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Create admin user in SQLite database via API
-      const response = await fetch("/api/admin/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          name,
-        }),
-      })
+      // Get existing users from localStorage
+      const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
 
-      const data = await response.json()
-
-      if (!response.ok) {
+      // Check if user already exists
+      const existingUser = mockUsers.find((u: any) => u.email === email)
+      if (existingUser) {
         toast({
-          title: "Error",
-          description: data.error || "Failed to create admin user.",
+          title: "User already exists",
+          description: "A user with this email already exists.",
           variant: "destructive",
         })
+        setIsSubmitting(false)
         return
       }
 
+      // Create admin user
+      const adminUser = {
+        id: generateId(),
+        email: email,
+        password: password, // In production, this should be hashed
+        name: name,
+        role: "admin" as const,
+        createdAt: new Date().toISOString(),
+        verified: true,
+      }
+
+      // Add to localStorage
+      mockUsers.push(adminUser)
+      localStorage.setItem("mockUsers", JSON.stringify(mockUsers))
+
       toast({
         title: "Admin user created!",
-        description: `Admin user "${email}" has been created successfully in the SQLite database. You can now log in.`,
+        description: `Admin user "${email}" has been created successfully. You can now log in.`,
       })
 
       // Clear form
@@ -56,10 +62,9 @@ export default function CreateAdminPage() {
       setPassword("")
       setName("")
     } catch (error) {
-      console.error("Error creating admin user:", error)
       toast({
         title: "Error",
-        description: "Failed to create admin user. Please try again.",
+        description: "Failed to create admin user.",
         variant: "destructive",
       })
     } finally {
@@ -76,7 +81,7 @@ export default function CreateAdminPage() {
             <CardHeader>
               <CardTitle>Create Admin User</CardTitle>
               <CardDescription>
-                Create an admin user account in the SQLite database. This user will be able to access the admin dashboard.
+                Create an admin user account that will be stored in localStorage.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -86,7 +91,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder=""
+                    placeholder="admin@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -98,7 +103,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder=""
+                    placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -110,7 +115,7 @@ export default function CreateAdminPage() {
                   <Input
                     id="name"
                     type="text"
-                    placeholder=""
+                    placeholder="Admin User"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -118,14 +123,7 @@ export default function CreateAdminPage() {
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating...
-                    </span>
-                  ) : (
-                    "Create Admin User"
-                  )}
+                  {isSubmitting ? "Creating..." : "Create Admin User"}
                 </Button>
               </form>
 

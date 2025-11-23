@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/db/connect"
-import { findApplicationById, updateApplication, deleteApplication } from "@/lib/db/applications"
-import { findOpportunityById, updateOpportunityApplicationCount } from "@/lib/db/opportunities"
+import { findApplicationById, updateApplication } from "@/lib/db/applications"
+import { findOpportunityById } from "@/lib/db/opportunities"
 import { findUserById } from "@/lib/db/users"
 import { getAuthFromRequest } from "@/lib/utils/auth"
 import { sendEmail, generateStatusUpdateEmail } from "@/lib/utils/email"
@@ -9,7 +9,7 @@ import { sendEmail, generateStatusUpdateEmail } from "@/lib/utils/email"
 // PUT - Update application status
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectDB()
@@ -19,8 +19,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const resolvedParams = await Promise.resolve(params)
-    const application = findApplicationById(resolvedParams.id)
+    const application = findApplicationById(params.id)
     if (!application) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 })
     }
@@ -45,7 +44,7 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
-    const updated = updateApplication(resolvedParams.id, { status: status as "pending" | "accepted" | "rejected" })
+    const updated = updateApplication(params.id, { status: status as "pending" | "accepted" | "rejected" })
 
     if (!updated) {
       return NextResponse.json({ error: "Failed to update application" }, { status: 500 })
@@ -69,42 +68,5 @@ export async function PUT(
   } catch (error: any) {
     console.error("Error updating application:", error)
     return NextResponse.json({ error: error.message || "Failed to update application" }, { status: 500 })
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
-) {
-  try {
-    await connectDB()
-
-    const auth = getAuthFromRequest(request)
-    if (!auth || auth.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const resolvedParams = await Promise.resolve(params)
-    const application = findApplicationById(resolvedParams.id)
-    if (!application) {
-      return NextResponse.json({ error: "Application not found" }, { status: 404 })
-    }
-
-    const opportunity = findOpportunityById(application.opportunityId)
-    if (!opportunity) {
-      return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
-    }
-
-    const deleted = deleteApplication(application.id)
-    if (!deleted) {
-      return NextResponse.json({ error: "Failed to delete application" }, { status: 500 })
-    }
-
-    updateOpportunityApplicationCount(opportunity.id)
-
-    return NextResponse.json({ message: "Application deleted successfully" })
-  } catch (error: any) {
-    console.error("Error deleting application:", error)
-    return NextResponse.json({ error: error.message || "Failed to delete application" }, { status: 500 })
   }
 }
