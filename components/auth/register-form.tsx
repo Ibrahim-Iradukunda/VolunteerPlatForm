@@ -20,7 +20,6 @@ export function RegisterForm() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    confirmPassword: "",
     name: "",
     role: "" as UserRole,
     // Volunteer specific
@@ -34,56 +33,12 @@ export function RegisterForm() {
     description: "",
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const { register } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
-  // Password validation function
-  const validatePassword = (password: string): string[] => {
-    const errors: string[] = []
-    if (password.length < 6) {
-      errors.push("At least 6 characters")
-    }
-    if (!/[a-zA-Z]/.test(password)) {
-      errors.push("Contains letters")
-    }
-    if (!/[0-9]/.test(password)) {
-      errors.push("Contains numbers")
-    }
-    return errors
-  }
-
-  // Check if password meets all requirements
-  const isPasswordValid = (password: string): boolean => {
-    return validatePassword(password).length === 0
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate password
-    const passwordValidationErrors = validatePassword(formData.password)
-    if (passwordValidationErrors.length > 0) {
-      setPasswordErrors(passwordValidationErrors)
-      toast({
-        title: "Password validation failed",
-        description: "Please ensure your password meets all requirements",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check if passwords match
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Passwords do not match",
-        description: "Please ensure both passwords are the same",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsLoading(true)
 
     const userData: any = {
@@ -186,74 +141,12 @@ export function RegisterForm() {
                 type="password"
                 placeholder="Create a strong password"
                 value={formData.password}
-                onChange={(e) => {
-                  const newPassword = e.target.value
-                  setFormData({ ...formData, password: newPassword })
-                  setPasswordErrors(validatePassword(newPassword))
-                }}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 aria-required="true"
-                className={cn(
-                  "h-11 transition-all focus:ring-2 focus:ring-primary/20",
-                  passwordErrors.length > 0 && formData.password.length > 0 && "border-destructive"
-                )}
+                className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
               />
-              {formData.password.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Password requirements:</p>
-                  <ul className="text-xs space-y-0.5">
-                    <li className={cn(
-                      "flex items-center gap-1.5",
-                      formData.password.length >= 6 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-                    )}>
-                      <span>{formData.password.length >= 6 ? "✓" : "○"}</span>
-                      <span>At least 6 characters</span>
-                    </li>
-                    <li className={cn(
-                      "flex items-center gap-1.5",
-                      /[a-zA-Z]/.test(formData.password) ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-                    )}>
-                      <span>{/[a-zA-Z]/.test(formData.password) ? "✓" : "○"}</span>
-                      <span>Contains letters</span>
-                    </li>
-                    <li className={cn(
-                      "flex items-center gap-1.5",
-                      /[0-9]/.test(formData.password) ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-                    )}>
-                      <span>{/[0-9]/.test(formData.password) ? "✓" : "○"}</span>
-                      <span>Contains numbers</span>
-                    </li>
-                  </ul>
-                </div>
-              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-semibold flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Confirm Password
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                required
-                aria-required="true"
-                className={cn(
-                  "h-11 transition-all focus:ring-2 focus:ring-primary/20",
-                  formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword && "border-destructive"
-                )}
-              />
-              {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword && (
-                <p className="text-xs text-destructive">Passwords do not match</p>
-              )}
-              {formData.confirmPassword.length > 0 && formData.password === formData.confirmPassword && (
-                <p className="text-xs text-green-600 dark:text-green-400">Passwords match</p>
-              )}
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="role" className="text-sm font-semibold flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
@@ -404,7 +297,7 @@ export function RegisterForm() {
             <Button 
               type="submit" 
               className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200" 
-              disabled={isLoading || !formData.role || !isPasswordValid(formData.password) || formData.password !== formData.confirmPassword}
+              disabled={isLoading || !formData.role}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
