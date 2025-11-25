@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Heart, Users, Globe } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function HeroSection() {
   return (
@@ -29,34 +30,42 @@ export function HeroSection() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 max-w-4xl mx-auto">
-          <div className="flex flex-col items-center gap-3 p-6">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Heart className="h-6 w-6 text-primary" aria-hidden="true" />
-            </div>
-            <h3 className="font-semibold text-lg">Inclusive by Design</h3>
-            <p className="text-sm text-muted-foreground text-center">
-              Every opportunity is tagged with accessibility features to ensure equal participation
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-3 p-6">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="h-6 w-6 text-primary" aria-hidden="true" />
-            </div>
-            <h3 className="font-semibold text-lg">Community Driven</h3>
-            <p className="text-sm text-muted-foreground text-center">
-              Connect with NGOs and organizations committed to diversity and inclusion
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-3 p-6">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Globe className="h-6 w-6 text-primary" aria-hidden="true" />
-            </div>
-            <h3 className="font-semibold text-lg">Pan-African Reach</h3>
-            <p className="text-sm text-muted-foreground text-center">
-              Opportunities across the continent, from local communities to regional initiatives
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-5xl mx-auto">
+          <Card className="h-full bg-background shadow-lg border-primary/10">
+            <CardHeader className="flex flex-col items-center gap-3 pb-2">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Heart className="h-6 w-6 text-primary" aria-hidden="true" />
+              </div>
+              <CardTitle className="text-lg">Inclusive by Design</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center text-sm text-muted-foreground">
+              Every opportunity is tagged with accessibility features to ensure equal participation.
+            </CardContent>
+          </Card>
+
+          <Card className="h-full bg-background shadow-lg border-primary/10">
+            <CardHeader className="flex flex-col items-center gap-3 pb-2">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="h-6 w-6 text-primary" aria-hidden="true" />
+              </div>
+              <CardTitle className="text-lg">Community Driven</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center text-sm text-muted-foreground">
+              Connect with NGOs and organizations committed to diversity and inclusion.
+            </CardContent>
+          </Card>
+
+          <Card className="h-full bg-background shadow-lg border-primary/10">
+            <CardHeader className="flex flex-col items-center gap-3 pb-2">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Globe className="h-6 w-6 text-primary" aria-hidden="true" />
+              </div>
+              <CardTitle className="text-lg">Pan-African Reach</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center text-sm text-muted-foreground">
+              Opportunities across the continent, from local communities to regional initiatives.
+            </CardContent>
+          </Card>
         </div>
       </div>
     </section>

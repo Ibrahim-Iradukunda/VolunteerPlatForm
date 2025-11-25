@@ -46,6 +46,7 @@ export function RegisterForm() {
     description: "",
     confirmPassword: "",
   })
+  const [confirmTouched, setConfirmTouched] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { register } = useAuth()
   const router = useRouter()
@@ -54,6 +55,12 @@ export function RegisterForm() {
   const passwordMeetsRequirements = (password: string) => {
     return password.length >= 6 && /[A-Za-z]/.test(password) && /\d/.test(password)
   }
+
+  const passwordsMatch =
+    confirmTouched &&
+    formData.confirmPassword.length > 0 &&
+    formData.password.length > 0 &&
+    formData.password === formData.confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -192,10 +199,15 @@ export function RegisterForm() {
                 type="password"
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onFocus={() => setConfirmTouched(true)}
+                onChange={(e) => {
+                  setConfirmTouched(true)
+                  setFormData({ ...formData, confirmPassword: e.target.value })
+                }}
                 required
                 aria-required="true"
               />
+              {passwordsMatch && <p className="text-xs text-emerald-600">Passwords match</p>}
             </div>
           </div>
 

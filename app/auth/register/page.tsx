@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react"
 export default function RegisterPage() {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 pb-12">
         <div className="w-full max-w-2xl mb-4 mx-auto">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2">
