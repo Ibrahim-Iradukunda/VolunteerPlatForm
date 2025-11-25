@@ -5,6 +5,7 @@ A web application connecting youth and people with disabilities to meaningful vo
 ## Features
 
 - **Volunteer Features**
+
   - Browse and search volunteer opportunities
   - Filter opportunities by type, location, and accessibility needs
   - Apply to volunteer opportunities
@@ -12,6 +13,7 @@ A web application connecting youth and people with disabilities to meaningful vo
   - Like and comment on opportunities
 
 - **Organization Features**
+
   - Create and manage volunteer opportunities
   - View and manage applications from volunteers
   - Organization dashboard
@@ -36,7 +38,7 @@ A web application connecting youth and people with disabilities to meaningful vo
 
 ## Installation
 
-1. **Clone the repository** (`https://github.com/Ibrahim-Iradukunda/VolunteerPlatForm.git`):
+1. **Clone the repository** `https://github.com/Ibrahim-Iradukunda/VolunteerPlatForm.git`
 
    ```bash
    cd "VolunteerPlatForm"

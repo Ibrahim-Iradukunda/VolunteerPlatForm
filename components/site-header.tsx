@@ -2,13 +2,21 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
 import { Compass, Info, LayoutDashboard, LogIn, LogOut, Menu, UserPlus, X } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 export function SiteHeader() {
   const { isAuthenticated, user, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const { profileName, profileInitial, profileRole } = useMemo(() => {
+    const displayName = (user?.name || user?.email || "User").trim()
+    const initial = displayName.charAt(0).toUpperCase() || "U"
+    const roleLabel = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Member"
+    return { profileName: displayName, profileInitial: initial, profileRole: roleLabel }
+  }, [user])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -40,10 +48,26 @@ export function SiteHeader() {
                   Dashboard
                 </Button>
               </Link>
-              <Button variant="outline" onClick={logout} className="gap-2">
-                <LogOut className="h-4 w-4" aria-hidden="true" />
-                Logout
-              </Button>
+              <div className="flex items-center gap-3 rounded-full border px-3 py-1.5">
+                <Avatar className="h-8 w-8 bg-muted text-primary">
+                  <AvatarFallback className="text-sm font-semibold">
+                    {profileInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-sm font-medium text-foreground">{profileName}</span>
+                  <span className="text-xs text-muted-foreground">{profileRole}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={logout}
+                  className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Logout"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
             </>
           ) : (
             <>
@@ -96,23 +120,35 @@ export function SiteHeader() {
             </Link>
             {isAuthenticated ? (
               <>
+                <div className="flex items-center gap-4 rounded-2xl border px-4 py-3">
+                  <Avatar className="h-12 w-12 bg-muted text-primary">
+                    <AvatarFallback className="text-base font-semibold">
+                      {profileInitial}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col flex-1">
+                    <span className="text-base font-semibold text-foreground">{profileName}</span>
+                    <span className="text-sm text-muted-foreground">{profileRole}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      logout()
+                      setMobileMenuOpen(false)
+                    }}
+                    className="h-10 w-10 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Logout"
+                  >
+                    <LogOut className="h-5 w-5" aria-hidden="true" />
+                  </Button>
+                </div>
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-2">
                     <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                     Dashboard
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    logout()
-                    setMobileMenuOpen(false)
-                  }}
-                  className="w-full gap-2"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                  Logout
-                </Button>
               </>
             ) : (
               <>
