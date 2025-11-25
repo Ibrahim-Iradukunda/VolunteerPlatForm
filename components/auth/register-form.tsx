@@ -110,10 +110,10 @@ export function RegisterForm() {
         title: "Registration successful",
         description:
           formData.role === "organization"
-            ? "Your account is pending admin approval."
-            : "Welcome! You can now access your dashboard.",
+            ? "Your account is pending admin approval. Please log in to track updates."
+            : "Account created! Please log in to continue.",
       })
-      router.push("/dashboard")
+      router.push("/auth/login")
     } else {
       toast({
         title: "Registration failed",
