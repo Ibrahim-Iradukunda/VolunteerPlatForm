@@ -5,52 +5,44 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { Heart } from "lucide-react"
+import { getOpportunityLikeStats, toggleOpportunityLike } from "@/lib/mock-data"
 
 interface OpportunityLikesProps {
   opportunityId: string
-  initialLikes?: number
-  initialIsLiked?: boolean
 }
 
-export function OpportunityLikes({ opportunityId, initialLikes = 0, initialIsLiked = false }: OpportunityLikesProps) {
-  const { user, isAuthenticated, getAuthHeaders } = useAuth()
+export function OpportunityLikes({ opportunityId }: OpportunityLikesProps) {
+  const { user, isAuthenticated } = useAuth()
   const { toast } = useToast()
-  const [likesCount, setLikesCount] = useState(initialLikes)
-  const [isLiked, setIsLiked] = useState(initialIsLiked)
-  const [isToggling, setIsToggling] = useState(false)
+  const [likesCount, setLikesCount] = useState(0)
+  const [isLiked, setIsLiked] = useState(false)
 
   useEffect(() => {
-    // Fetch current like status
-    fetchLikeStatus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunityId, user])
+    refreshLikeState()
 
-  const fetchLikeStatus = async () => {
-    try {
-      const response = await fetch(`/api/opportunities/${opportunityId}`)
-      if (response.ok) {
-        const data = await response.json()
-        const opportunity = data.opportunity
-        if (opportunity.likes) {
-          setLikesCount(opportunity.likes.length || 0)
-          // Check if current user liked it (if user is authenticated)
-          if (isAuthenticated && opportunity.likes && user) {
-            const userLiked = opportunity.likes.some((likeId: any) => {
-              const likeIdStr = typeof likeId === 'string' ? likeId : likeId.toString()
-              const userIdStr = user.id || (user as any)._id?.toString()
-              return likeIdStr === userIdStr
-            })
-            setIsLiked(userLiked)
-          }
-        }
-      }
-    } catch (error) {
-      // Error handling silent for better UX
+    if (typeof window === "undefined") {
+      return
     }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "opportunityLikes") {
+        refreshLikeState()
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opportunityId, user?.id, (user as any)?._id])
+
+  const refreshLikeState = () => {
+    const stats = getOpportunityLikeStats(opportunityId, (user as any)?._id || user?.id)
+    setLikesCount(stats.likesCount)
+    setIsLiked(stats.isLiked)
   }
 
-  const handleToggleLike = async () => {
-    if (!isAuthenticated) {
+  const handleToggleLike = () => {
+    if (!isAuthenticated || !user) {
       toast({
         title: "Login required",
         description: "Please log in to like opportunities",
@@ -59,34 +51,10 @@ export function OpportunityLikes({ opportunityId, initialLikes = 0, initialIsLik
       return
     }
 
-    try {
-      setIsToggling(true)
-      const response = await fetch(`/api/opportunities/${opportunityId}/like`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setIsLiked(data.liked)
-        setLikesCount(data.likesCount)
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to toggle like",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to toggle like",
-        variant: "destructive",
-      })
-    } finally {
-      setIsToggling(false)
-    }
+    const userId = (user as any)._id || user.id
+    const result = toggleOpportunityLike(opportunityId, userId)
+    setIsLiked(result.liked)
+    setLikesCount(result.likesCount)
   }
 
   return (
@@ -94,7 +62,7 @@ export function OpportunityLikes({ opportunityId, initialLikes = 0, initialIsLik
       variant={isLiked ? "default" : "outline"}
       size="sm"
       onClick={handleToggleLike}
-      disabled={isToggling || !isAuthenticated}
+      disabled={!isAuthenticated}
       className="gap-2"
       aria-label={isLiked ? "Unlike this opportunity" : "Like this opportunity"}
     >
@@ -103,4 +71,3 @@ export function OpportunityLikes({ opportunityId, initialLikes = 0, initialIsLik
     </Button>
   )
 }
-

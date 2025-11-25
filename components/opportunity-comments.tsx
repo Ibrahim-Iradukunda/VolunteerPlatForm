@@ -8,14 +8,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { MessageSquare, Send } from "lucide-react"
+import { addOpportunityComment, getOpportunityComments } from "@/lib/mock-data"
 
 interface Comment {
-  _id: string
-  volunteerId: {
-    name: string
-    email: string
-  }
-  volunteerName: string
+  id: string
+  userId: string
+  userName: string
   content: string
   createdAt: string
 }
@@ -25,71 +23,56 @@ interface OpportunityCommentsProps {
 }
 
 export function OpportunityComments({ opportunityId }: OpportunityCommentsProps) {
-  const { user, isAuthenticated, getAuthHeaders } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const { toast } = useToast()
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchComments()
+
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "opportunityComments") {
+        fetchComments()
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
   }, [opportunityId])
 
-  const fetchComments = async () => {
+  const fetchComments = () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/comments?opportunityId=${opportunityId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setComments(data.comments || [])
-      }
-    } catch (error) {
-      // Error handling silent for better UX
+      const data = getOpportunityComments(opportunityId)
+      setComments(data)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSubmitComment = async () => {
-    if (!newComment.trim() || !isAuthenticated) return
+  const handleSubmitComment = () => {
+    if (!newComment.trim() || !isAuthenticated || !user) return
 
-    try {
-      setIsSubmitting(true)
-      const response = await fetch("/api/comments", {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          opportunityId,
-          content: newComment.trim(),
-        }),
-      })
+    const userId = (user as any)._id || user.id
+    const comment = addOpportunityComment({
+      opportunityId,
+      userId,
+      userName: user.name,
+      content: newComment.trim(),
+    })
 
-      if (response.ok) {
-        const data = await response.json()
-        setComments([data.comment, ...comments])
-        setNewComment("")
-        toast({
-          title: "Comment posted",
-          description: "Your comment has been added successfully.",
-        })
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to post comment",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to post comment",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    setComments((prev) => [comment, ...prev])
+    setNewComment("")
+    toast({
+      title: "Comment posted",
+      description: "Your comment has been added successfully.",
+    })
   }
 
   const getInitials = (name: string) => {
@@ -121,7 +104,7 @@ export function OpportunityComments({ opportunityId }: OpportunityCommentsProps)
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">{newComment.length}/500</p>
-              <Button onClick={handleSubmitComment} disabled={!newComment.trim() || isSubmitting} size="sm">
+              <Button onClick={handleSubmitComment} disabled={!newComment.trim()} size="sm">
                 <Send className="h-4 w-4 mr-2" />
                 Post Comment
               </Button>
@@ -142,14 +125,14 @@ export function OpportunityComments({ opportunityId }: OpportunityCommentsProps)
         ) : (
           <div className="space-y-4">
             {comments.map((comment) => (
-              <div key={comment._id} className="flex gap-3">
+              <div key={comment.id} className="flex gap-3">
                 <Avatar>
-                  <AvatarFallback>{getInitials(comment.volunteerName || comment.volunteerId?.name || "U")}</AvatarFallback>
+                  <AvatarFallback>{getInitials(comment.userName || "U")}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">
-                      {comment.volunteerName || comment.volunteerId?.name || "Anonymous"}
+                      {comment.userName || "Anonymous"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(comment.createdAt).toLocaleDateString()}

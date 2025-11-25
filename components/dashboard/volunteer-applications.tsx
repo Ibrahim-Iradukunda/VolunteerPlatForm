@@ -71,7 +71,7 @@ export function VolunteerApplications() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground text-center mb-4">You haven't applied to any opportunities yet.</p>
-            <Link href="/dashboard/browse">
+            <Link href="/opportunities/browse">
               <Button>Browse Opportunities</Button>
             </Link>
           </CardContent>

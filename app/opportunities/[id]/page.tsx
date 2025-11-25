@@ -292,10 +292,7 @@ export default function OpportunityDetailPage() {
           </Card>
 
           <div className="flex gap-4">
-            <OpportunityLikes
-              opportunityId={opportunity._id || opportunity.id}
-              initialLikes={opportunity.applications || 0}
-            />
+            <OpportunityLikes opportunityId={opportunity._id || opportunity.id} />
           </div>
 
           <OpportunityComments opportunityId={opportunity._id || opportunity.id} />

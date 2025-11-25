@@ -1,4 +1,5 @@
 import type { Opportunity, Application } from "./types"
+import { generateId } from "@/lib/utils/id"
 
 export const mockOpportunities: Opportunity[] = [
   {
@@ -134,4 +135,104 @@ export function getApplications(): Application[] {
 export function saveApplications(applications: Application[]): void {
   if (typeof window === "undefined") return
   localStorage.setItem("applications", JSON.stringify(applications))
+}
+
+// Likes storage helpers
+type StoredLike = {
+  opportunityId: string
+  userId: string
+}
+
+const LIKES_STORAGE_KEY = "opportunityLikes"
+
+function readLikes(): StoredLike[] {
+  if (typeof window === "undefined") return []
+  const stored = localStorage.getItem(LIKES_STORAGE_KEY)
+  return stored ? JSON.parse(stored) : []
+}
+
+function writeLikes(likes: StoredLike[]) {
+  if (typeof window === "undefined") return
+  localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify(likes))
+}
+
+export function getOpportunityLikeStats(opportunityId: string, userId?: string) {
+  const likes = readLikes().filter((like) => like.opportunityId === opportunityId)
+  return {
+    likesCount: likes.length,
+    isLiked: userId ? likes.some((like) => like.opportunityId === opportunityId && like.userId === userId) : false,
+  }
+}
+
+export function toggleOpportunityLike(opportunityId: string, userId: string) {
+  let likes = readLikes()
+  const existingIndex = likes.findIndex((like) => like.opportunityId === opportunityId && like.userId === userId)
+
+  if (existingIndex >= 0) {
+    likes.splice(existingIndex, 1)
+  } else {
+    likes.push({ opportunityId, userId })
+  }
+
+  writeLikes(likes)
+
+  const stats = getOpportunityLikeStats(opportunityId, userId)
+  return {
+    liked: stats.isLiked,
+    likesCount: stats.likesCount,
+  }
+}
+
+// Comments storage helpers
+type StoredComment = {
+  id: string
+  opportunityId: string
+  userId: string
+  userName: string
+  content: string
+  createdAt: string
+}
+
+const COMMENTS_STORAGE_KEY = "opportunityComments"
+
+function readComments(): StoredComment[] {
+  if (typeof window === "undefined") return []
+  const stored = localStorage.getItem(COMMENTS_STORAGE_KEY)
+  return stored ? JSON.parse(stored) : []
+}
+
+function writeComments(comments: StoredComment[]) {
+  if (typeof window === "undefined") return
+  localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(comments))
+}
+
+export function getOpportunityComments(opportunityId: string): StoredComment[] {
+  return readComments()
+    .filter((comment) => comment.opportunityId === opportunityId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function addOpportunityComment({
+  opportunityId,
+  userId,
+  userName,
+  content,
+}: {
+  opportunityId: string
+  userId: string
+  userName: string
+  content: string
+}) {
+  const newComment: StoredComment = {
+    id: generateId(),
+    opportunityId,
+    userId,
+    userName,
+    content,
+    createdAt: new Date().toISOString(),
+  }
+
+  const comments = [newComment, ...readComments()]
+  writeComments(comments)
+  return newComment
 }
