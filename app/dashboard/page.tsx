@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { VolunteerOverview } from "@/components/dashboard/volunteer-overview"
 import { VolunteerApplications } from "@/components/dashboard/volunteer-applications"
 import { VolunteerBrowse } from "@/components/dashboard/volunteer-browse"
-import { Loader2 } from "lucide-react"
+import { ClipboardList, LayoutDashboard, Loader2, Search } from "lucide-react"
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth()
@@ -55,9 +55,18 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="browse">Browse</TabsTrigger>
-              <TabsTrigger value="applications">Applications</TabsTrigger>
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="browse" className="flex items-center gap-2">
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Browse
+              </TabsTrigger>
+              <TabsTrigger value="applications" className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                Applications
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">

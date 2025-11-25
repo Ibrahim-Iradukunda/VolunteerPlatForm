@@ -13,12 +13,26 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import type { UserRole } from "@/lib/types"
+import {
+  Accessibility,
+  Briefcase,
+  Calendar,
+  FileText,
+  Lock,
+  Mail,
+  MessageSquare,
+  Phone,
+  ShieldCheck,
+  Sparkles,
+  User,
+  UserCheck,
+  UserPlus,
+} from "lucide-react"
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    confirmPassword: "",
     name: "",
     role: "" as UserRole,
     // Volunteer specific
@@ -30,55 +44,38 @@ export function RegisterForm() {
     orgName: "",
     contactInfo: "",
     description: "",
+    confirmPassword: "",
   })
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
-  const [confirmPasswordError, setConfirmPasswordError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { register } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
-  // Password validation function
-  const validatePassword = (password: string): string[] => {
-    const errors: string[] = []
-    
-    if (password.length < 6) {
-      errors.push("Password must be at least 6 characters")
-    }
-    
-    if (!/[a-zA-Z]/.test(password)) {
-      errors.push("Password must contain at least one letter")
-    }
-    
-    if (!/[0-9]/.test(password)) {
-      errors.push("Password must contain at least one number")
-    }
-    
-    return errors
+  const passwordMeetsRequirements = (password: string) => {
+    return password.length >= 6 && /[A-Za-z]/.test(password) && /\d/.test(password)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate password
-    const passwordValidationErrors = validatePassword(formData.password)
-    setPasswordErrors(passwordValidationErrors)
-    
-    // Validate password confirmation
+
+    if (!passwordMeetsRequirements(formData.password)) {
+      toast({
+        title: "Password requirements",
+        description: "Use at least 6 characters with letters and numbers.",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
-      setConfirmPasswordError("Passwords do not match")
-      setIsLoading(false)
-      return
-    } else {
-      setConfirmPasswordError("")
-    }
-    
-    // Check if password validation passed
-    if (passwordValidationErrors.length > 0) {
-      setIsLoading(false)
+      toast({
+        title: "Passwords do not match",
+        description: "Make sure the confirmation matches your password.",
+        variant: "destructive",
+      })
       return
     }
-    
+
     setIsLoading(true)
 
     const userData: any = {
@@ -106,10 +103,10 @@ export function RegisterForm() {
         title: "Registration successful",
         description:
           formData.role === "organization"
-            ? "Your account is pending admin approval. Please login to continue."
-            : "Account created successfully! Please login to continue.",
+            ? "Your account is pending admin approval."
+            : "Welcome! You can now access your dashboard.",
       })
-      router.push("/auth/login")
+      router.push("/dashboard")
     } else {
       toast({
         title: "Registration failed",
@@ -124,25 +121,36 @@ export function RegisterForm() {
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
-        <CardTitle className="text-2xl">Create Account</CardTitle>
-        <CardDescription>Join our inclusive volunteer community</CardDescription>
+        <CardTitle className="text-2xl flex items-center gap-2">
+          <UserPlus className="h-5 w-5 text-primary" aria-hidden="true" />
+          Create Account
+        </CardTitle>
+        <CardDescription className="text-muted-foreground">
+          Join our inclusive volunteer community
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  aria-required="true"
-                />
+              <Label htmlFor="name" className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                Full Name
+              </Label>
+              <Input
+                id="name"
+                placeholder="Enter your name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                aria-required="true"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -157,68 +165,46 @@ export function RegisterForm() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Create a password"
                 value={formData.password}
-                onChange={(e) => {
-                  const newPassword = e.target.value
-                  setFormData({ ...formData, password: newPassword })
-                  setPasswordErrors(validatePassword(newPassword))
-                  // Clear confirm password error if passwords match
-                  if (newPassword === formData.confirmPassword) {
-                    setConfirmPasswordError("")
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 aria-required="true"
-                className={passwordErrors.length > 0 ? "border-destructive" : ""}
               />
-              {passwordErrors.length > 0 && (
-                <ul className="text-sm text-destructive space-y-1">
-                  {passwordErrors.map((error, index) => (
-                    <li key={index} className="list-disc list-inside">{error}</li>
-                  ))}
-                </ul>
-              )}
               <p className="text-xs text-muted-foreground">
-                Password must be at least 6 characters and contain both letters and numbers
+                At least 6 characters, including letters and numbers.
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                Confirm Password
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder="Re-enter your password"
                 value={formData.confirmPassword}
-                onChange={(e) => {
-                  const newConfirmPassword = e.target.value
-                  setFormData({ ...formData, confirmPassword: newConfirmPassword })
-                  if (newConfirmPassword && newConfirmPassword !== formData.password) {
-                    setConfirmPasswordError("Passwords do not match")
-                  } else {
-                    setConfirmPasswordError("")
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 required
                 aria-required="true"
-                className={confirmPasswordError ? "border-destructive" : ""}
               />
-              {confirmPasswordError && (
-                <p className="text-sm text-destructive">{confirmPasswordError}</p>
-              )}
             </div>
           </div>
-          
+
           <div className="space-y-2">
-            <Label htmlFor="role">I am a...</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}
-            >
+            <Label htmlFor="role" className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              I am a...
+            </Label>
+            <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
               <SelectTrigger id="role" aria-label="Select your role">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
@@ -232,7 +218,10 @@ export function RegisterForm() {
           {formData.role === "volunteer" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="skills">Skills (comma separated)</Label>
+                <Label htmlFor="skills" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Skills (comma separated)
+                </Label>
                 <Input
                   id="skills"
                   placeholder="e.g., Teaching, Communication, Technology"
@@ -241,7 +230,10 @@ export function RegisterForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="availability">Availability</Label>
+                <Label htmlFor="availability" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Availability
+                </Label>
                 <Input
                   id="availability"
                   placeholder="e.g., Weekends, Evenings, Full-time"
@@ -250,7 +242,10 @@ export function RegisterForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="disabilityStatus">Disability Status (optional)</Label>
+                <Label htmlFor="disabilityStatus" className="flex items-center gap-2">
+                  <Accessibility className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Disability Status (optional)
+                </Label>
                 <Input
                   id="disabilityStatus"
                   placeholder="e.g., Visual impairment, Mobility impairment"
@@ -259,7 +254,10 @@ export function RegisterForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="accessibilityNeeds">Accessibility Needs (comma separated, optional)</Label>
+                <Label htmlFor="accessibilityNeeds" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Accessibility Needs (comma separated, optional)
+                </Label>
                 <Input
                   id="accessibilityNeeds"
                   placeholder="e.g., Wheelchair access, Sign language, Remote work"
@@ -273,7 +271,10 @@ export function RegisterForm() {
           {formData.role === "organization" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="orgName">Organization Name</Label>
+                <Label htmlFor="orgName" className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Organization Name
+                </Label>
                 <Input
                   id="orgName"
                   placeholder="Your Organization Name"
@@ -283,7 +284,10 @@ export function RegisterForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contactInfo">Contact Information</Label>
+                <Label htmlFor="contactInfo" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Contact Information
+                </Label>
                 <Input
                   id="contactInfo"
                   placeholder="Phone number or additional email"
@@ -292,7 +296,10 @@ export function RegisterForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Organization Description</Label>
+                <Label htmlFor="description" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Organization Description
+                </Label>
                 <Textarea
                   id="description"
                   placeholder="Tell us about your organization and its mission"

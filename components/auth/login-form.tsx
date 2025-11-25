@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import { Lock, LogIn, Mail } from "lucide-react"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -45,17 +46,25 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardTitle className="text-2xl flex items-center gap-2">
+          <LogIn className="h-5 w-5 text-primary" aria-hidden="true" />
+          Login
+        </CardTitle>
+        <CardDescription className="text-muted-foreground flex items-center gap-2">
+          <span>Enter your credentials to access your account</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
-                placeholder="Enter your email"
+              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -63,7 +72,10 @@ export function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              Password
+            </Label>
             <Input
               id="password"
               type="password"

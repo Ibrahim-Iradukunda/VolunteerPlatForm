@@ -90,28 +90,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: any): Promise<boolean> => {
     if (typeof window === "undefined") return false
-    
-    try {
-      // Use API endpoint for registration
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      })
+    // Use localStorage directly
+    const mockUsers = JSON.parse(localStorage.getItem("mockUsers") || "[]")
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Registration error:", errorData)
-        return false
-      }
-
-      // Registration successful - do NOT auto-login
-      // User must login separately
-      return true
-    } catch (error) {
-      console.error("Registration error:", error)
+    if (mockUsers.some((u: any) => u.email === userData.email)) {
       return false
     }
+
+    const { generateId } = require("@/lib/utils/id")
+    
+    const newUser = {
+      ...userData,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      verified: userData.role === "organization" ? false : true,
+    }
+
+    mockUsers.push(newUser)
+    localStorage.setItem("mockUsers", JSON.stringify(mockUsers))
+
+    const { password: _, ...userWithoutPassword } = newUser
+    setUser(userWithoutPassword)
+    setIsAuthenticated(true)
+    localStorage.setItem("user", JSON.stringify(userWithoutPassword))
+    return true
   }
 
   const logout = () => {

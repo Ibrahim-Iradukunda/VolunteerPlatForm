@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { Menu, X } from "lucide-react"
+import { Compass, Info, LayoutDashboard, LogIn, LogOut, Menu, UserPlus, X } from "lucide-react"
 import { useState } from "react"
 
 export function SiteHeader() {
@@ -24,28 +24,40 @@ export function SiteHeader() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/#opportunities" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/#opportunities" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
+            <Compass className="h-4 w-4" aria-hidden="true" />
             Opportunities
           </Link>
-          <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
+            {/* <Info className="h-4 w-4" aria-hidden="true" /> */}
             About
           </Link>
           {isAuthenticated ? (
             <>
               <Link href="/dashboard">
-                <Button variant="ghost">Dashboard</Button>
+                <Button variant="ghost" className="gap-2">
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                  Dashboard
+                </Button>
               </Link>
-              <Button variant="outline" onClick={logout}>
+              <Button variant="outline" onClick={logout} className="gap-2">
+                <LogOut className="h-4 w-4" aria-hidden="true" />
                 Logout
               </Button>
             </>
           ) : (
             <>
               <Link href="/auth/login">
-                <Button variant="ghost">Login</Button>
+                <Button variant="ghost" className="gap-2">
+                  {/* <LogIn className="h-4 w-4" aria-hidden="true" /> */}
+                  Login
+                </Button>
               </Link>
               <Link href="/auth/register">
-                <Button>Sign Up</Button>
+                <Button className="gap-2">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Sign Up
+                </Button>
               </Link>
             </>
           )}
@@ -68,22 +80,25 @@ export function SiteHeader() {
           <nav className="container flex flex-col gap-4 p-4">
             <Link
               href="/#opportunities"
-              className="text-sm font-medium hover:text-primary transition-colors"
+              className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2"
               onClick={() => setMobileMenuOpen(false)}
             >
+              <Compass className="h-4 w-4" aria-hidden="true" />
               Opportunities
             </Link>
             <Link
               href="/about"
-              className="text-sm font-medium hover:text-primary transition-colors"
+              className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2"
               onClick={() => setMobileMenuOpen(false)}
             >
+              <Info className="h-4 w-4" aria-hidden="true" />
               About
             </Link>
             {isAuthenticated ? (
               <>
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start gap-2">
+                    <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                     Dashboard
                   </Button>
                 </Link>
@@ -93,20 +108,25 @@ export function SiteHeader() {
                     logout()
                     setMobileMenuOpen(false)
                   }}
-                  className="w-full"
+                  className="w-full gap-2"
                 >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
                   Logout
                 </Button>
               </>
             ) : (
               <>
                 <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start gap-2">
+                    <LogIn className="h-4 w-4" aria-hidden="true" />
                     Login
                   </Button>
                 </Link>
                 <Link href="/auth/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">Sign Up</Button>
+                  <Button className="w-full gap-2">
+                    <UserPlus className="h-4 w-4" aria-hidden="true" />
+                    Sign Up
+                  </Button>
                 </Link>
               </>
             )}
